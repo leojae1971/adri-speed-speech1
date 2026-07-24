@@ -1,0 +1,86 @@
+# ============================================================
+# FLUTTER / DART
+# ============================================================
+.dart_tool/
+build/
+.pub-cache/
+.pub/
+*.lock
+*.iml
+*.log
+*.pid
+*.tmp
+*.swp
+*.swo
+
+# ============================================================
+# BACKEND PYTHON
+# ============================================================
+__pycache__/
+*.pyc
+*.pyo
+venv/
+env/
+.env
+*.db
+*.sqlite
+*.pytest_cache/
+.coverage
+htmlcov/
+
+# ============================================================
+# BACKUPS, VERSIONES ANTIGUAS Y ARCHIVOS BASURA
+# ============================================================
+*_backup/
+* v.*/
+backup/
+*.bak*
+*.save
+*.old
+*.orig
+*.patch
+*.diff
+*.rej
+*~
+
+# ============================================================
+# IDE Y EDITORES
+# ============================================================
+.vscode/
+.idea/
+*.iml
+*.swp
+*.swo
+*~
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+Desktop.ini
+
+# ============================================================
+# ARCHIVOS GRANDES GENERADOS POR EL PROYECTO
+# ============================================================
+dump_proyecto_completo.txt
+todo_el_proyecto.txt
+PROJECT_CONTEXT_FOR_AI.md
+PROJECT_CONTEXT_FOR_AI.txt
+AI_DUMP_TOTAL.txt
+files.zip
+*.zip
+*.rar
+*.tar
+*.tar.gz
+*.tar.bz2
+*.7z
+*.rtf
+*.doc
+*.docx
+
+# ============================================================
+# SUBMÓDULOS ROTOS / NO NECESARIOS
+# ============================================================
+build/macos/SourcePackages/
+*.gem
+*.framework
+*.xcworkspace

@@ -1,0 +1,42 @@
+# Flutter
+.dart_tool/
+build/
+.pub-cache/
+.pub/
+*.lock
+*.iml
+*.pyc
+__pycache__/
+*.log
+
+# Backend Python
+adri_speed_speech_backend/__pycache__/
+adri_speed_speech_backend/*.pyc
+adri_speed_speech_backend/venv/
+adri_speed_speech_backend/.env
+
+# Backups y versiones
+*_backup/
+* v.*/
+backup/
+*.bak*
+*.save
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# MacOS
+.DS_Store
+
+# Archivos grandes generados
+dump_proyecto_completo.txt
+todo_el_proyecto.txt
+PROJECT_CONTEXT_FOR_AI.md
+files.zip
+*.rtf
+
+# Submódulos rotos (ignorar completamente)
+build/macos/SourcePackages/

@@ -1,0 +1,42 @@
+name: adri_speed_speech
+description: Adri Speed Speech - Language Learning App
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  intl: any
+  http: ^1.2.0
+  speech_to_text: ^7.4.0
+  flutter_tts: ^4.2.2
+  provider: ^6.1.1
+  cupertino_icons: ^1.0.6
+  shared_preferences: ^2.3.2
+  image_picker: ^1.1.2
+  google_mlkit_text_recognition: ^0.13.1
+  google_mlkit_translation: ^0.11.1
+  equatable: ^2.0.5
+  drift: ^2.20.0
+  path_provider: ^2.1.4
+  path: ^1.9.0
+  audioplayers: ^5.2.0          # <--- NUEVO
+
+dev_dependencies:
+  drift_dev: ^2.20.0
+  build_runner: ^2.4.11
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  generate: true
+  uses-material-design: true
+  assets:
+    - assets/avatars/
+    - assets/images/
