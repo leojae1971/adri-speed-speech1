@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:http/http.dart' as http;
 import '../../../../core/services/ai_service.dart';
 import '../../../../core/services/hybrid_tts_service.dart';
 import '../../../../core/services/speech_service.dart';
@@ -12,6 +13,7 @@ import '../../../../core/services/avatar/dialogue_script_parser.dart';
 import '../../../../main.dart';
 import '../../../../core/utils/language_detector.dart';
 import '../../../../core/utils/logger.dart';
+import '../../../../core/config/api_config.dart';
 import 'image_translation_screen.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -26,7 +28,6 @@ class _ChatScreenState extends State<ChatScreen> {
   final ScrollController _scrollController = ScrollController();
   final AudioPlayer _audioPlayer = AudioPlayer();
 
-  // Historial por idioma
   final Map<String, List<Map<String, dynamic>>> _messagesByLanguage = {};
   List<Map<String, dynamic>> get _messages =>
       _messagesByLanguage.putIfAbsent(_currentLanguage, () => []);
@@ -37,9 +38,11 @@ class _ChatScreenState extends State<ChatScreen> {
   late AdriSpeechState _speechState;
 
   String _currentLanguage = 'en';
+  String _detectedUserLanguage = 'es';
   bool _isProcessing = false;
   bool _isWaitingForResponse = false;
   AvatarExpression? _currentAvatarExpression;
+  Timer? _waitingTimer;
 
   static const List<Map<String, String>> _languages = [
     {'code': 'en', 'flag': '🇬🇧', 'label': 'English'},
@@ -54,7 +57,55 @@ class _ChatScreenState extends State<ChatScreen> {
     {'code': 'ar', 'flag': '🇸🇦', 'label': 'العربية'},
   ];
 
-  // Mapa de voz para backend (TODAS FEMENINAS)
+  static const Map<String, String> _welcomeMessages = {
+    'en': "[SONRISA_ABIERTA] Hello! [BOCA_A] I'm Adri, your English "
+        "teacher. [PREGUNTA_INTERES] Ready to practice a bit?",
+    'es': "[SONRISA_ABIERTA] ¡Hola! [BOCA_A] Soy Adri. "
+        "[PREGUNTA_INTERES] ¿Charlamos un rato?",
+    'sw': "[SONRISA_ABIERTA] Habari! [BOCA_A] Mimi ni Adri, mwalimu "
+        "wako wa Kiswahili. [PREGUNTA_INTERES] Tuanze?",
+    'zh': "[SONRISA_ABIERTA] 你好！[BOCA_A] 我是Adri，你的中文老师。"
+        "[PREGUNTA_INTERES] 我们开始练习吧？",
+    'hi': "[SONRISA_ABIERTA] नमस्ते! [BOCA_A] मैं Adri हूं, आपकी "
+        "हिंदी शिक्षिका। [PREGUNTA_INTERES] क्या हम शुरू करें?",
+    'fr': "[SONRISA_ABIERTA] Bonjour ! [BOCA_A] Je suis Adri, ta prof "
+        "de français. [PREGUNTA_INTERES] On commence ?",
+    'ru': "[SONRISA_ABIERTA] Привет! [BOCA_A] Я Адри, твоя "
+        "учительница русского. [PREGUNTA_INTERES] Начнём?",
+    'pt': "[SONRISA_ABIERTA] Olá! [BOCA_A] Eu sou a Adri, sua "
+        "professora de português. [PREGUNTA_INTERES] Vamos começar?",
+    'de': "[SONRISA_ABIERTA] Hallo! [BOCA_A] Ich bin Adri, deine "
+        "Deutschlehrerin. [PREGUNTA_INTERES] Sollen wir anfangen?",
+    'ar': "[SONRISA_ABIERTA] مرحبا! [BOCA_A] أنا Adri، معلمتك "
+        "للعربية. [PREGUNTA_INTERES] هل نبدأ؟",
+  };
+
+  static const Map<String, String> _welcomeTranslations = {
+    'en': '¡Hola! Soy Adri, tu profesora de inglés. ¿Listo para practicar un poco?',
+    'es': '',
+    'sw': '¡Hola! Soy Adri, tu profesora de swahili. ¿Empezamos?',
+    'zh': '¡Hola! Soy Adri, tu profesora de mandarín. ¿Empezamos a practicar?',
+    'hi': '¡Hola! Soy Adri, tu profesora de hindi. ¿Empezamos?',
+    'fr': '¡Hola! Soy Adri, tu profesora de francés. ¿Empezamos?',
+    'ru': '¡Hola! Soy Adri, tu profesora de ruso. ¿Empezamos?',
+    'pt': '¡Hola! Soy Adri, tu profesora de portugués. ¿Empezamos?',
+    'de': '¡Hola! Soy Adri, tu profesora de alemán. ¿Empezamos?',
+    'ar': '¡Hola! Soy Adri, tu profesora de árabe. ¿Empezamos?',
+  };
+
+  static const Map<String, String> _waitingPhrases = {
+    'en': '[DUDA_PENSATIVA] Just a moment...',
+    'es': '[DUDA_PENSATIVA] Un momento...',
+    'sw': '[DUDA_PENSATIVA] Subiri kidogo...',
+    'zh': '[DUDA_PENSATIVA] 请稍等...',
+    'hi': '[DUDA_PENSATIVA] एक क्षण रुकिए...',
+    'fr': '[DUDA_PENSATIVA] Un instant...',
+    'ru': '[DUDA_PENSATIVA] Секунду...',
+    'pt': '[DUDA_PENSATIVA] Um momento...',
+    'de': '[DUDA_PENSATIVA] Einen Moment...',
+    'ar': '[DUDA_PENSATIVA] لحظة من فضلك...',
+  };
+
   String _voiceIdForLanguage(String lang) {
     const map = {
       'en': 'en-US-JennyNeural',
@@ -81,8 +132,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
     _ttsService.initialize();
     _ttsService.setLanguage(_currentLanguage);
-
-    _loadAllHistories();
+    _loadAllHistories().then((_) => _maybeShowWelcomeForCurrentLanguage());
   }
 
   @override
@@ -90,6 +140,7 @@ class _ChatScreenState extends State<ChatScreen> {
     _controller.dispose();
     _scrollController.dispose();
     _audioPlayer.dispose();
+    _waitingTimer?.cancel();
     super.dispose();
   }
 
@@ -127,11 +178,44 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
+  Future<void> _maybeShowWelcomeForCurrentLanguage() async {
+    if (_messages.isNotEmpty) return;
+    final tagged = _welcomeMessages[_currentLanguage];
+    if (tagged == null) return;
+    final clean = DialogueScriptParser.stripTags(tagged);
+    final translation = _welcomeTranslations[_currentLanguage] ?? '';
+
+    setState(() {
+      _messages.add({
+        'role': 'adri',
+        'text': clean,
+        'translation': translation,
+        'tagged': tagged,
+        'provider': null,
+        'audio_base64': null,
+        'visemes': null,
+      });
+    });
+    _scrollToBottom();
+    unawaited(_persistCurrentHistory());
+
+    _speechState.setState_(AdriState.speaking);
+    await _ttsService.precache(clean);
+    await Future.delayed(const Duration(milliseconds: 150));
+    await _ttsService.speakResponse(clean);
+    if (translation.isNotEmpty && _currentLanguage != 'es') {
+      await Future.delayed(const Duration(milliseconds: 500));
+      await _ttsService.speakTranslation(translation);
+    }
+    _speechState.setState_(AdriState.idle);
+  }
+
   void _changeLanguage(String code) {
     setState(() => _currentLanguage = code);
     _ttsService.setLanguage(code);
     Navigator.of(context).pop();
     _scrollToBottom();
+    _maybeShowWelcomeForCurrentLanguage();
   }
 
   void _showLanguageSelector() {
@@ -193,18 +277,16 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  /// Envía un mensaje (texto o voz) y maneja la respuesta con audio del backend.
   Future<void> _sendMessage([String? spokenText]) async {
     final text = (spokenText ?? _controller.text).trim();
     if (text.isEmpty || _isProcessing) return;
 
     _controller.clear();
 
-    // Detección automática de idioma (cambia el avatar si es necesario)
     final detectedLang = LanguageDetector.detect(text);
-    if (detectedLang != null && detectedLang != _currentLanguage) {
-      setState(() => _currentLanguage = detectedLang);
-      _ttsService.setLanguage(detectedLang);
+    if (detectedLang != null) {
+      _detectedUserLanguage = detectedLang;
+      Logger.log('Idioma del usuario detectado: $_detectedUserLanguage');
     }
 
     setState(() {
@@ -217,19 +299,30 @@ class _ChatScreenState extends State<ChatScreen> {
 
     _speechState.setState_(AdriState.waiting);
 
+    _waitingTimer = Timer(const Duration(seconds: 4), () {
+      final phrase = _waitingPhrases[_currentLanguage];
+      if (phrase == null || !mounted) return;
+      setState(() => _currentAvatarExpression = AvatarExpression.dudaPensativa);
+      _ttsService.speakResponse(DialogueScriptParser.stripTags(phrase));
+    });
+
     final voiceId = _voiceIdForLanguage(_currentLanguage);
     final adriResponse = await _aiService.sendMessage(
       text,
-      lang: _currentLanguage,
+      targetLang: _currentLanguage,
+      userLang: _detectedUserLanguage,
       voiceId: voiceId,
+      rate: -10,
     );
+
+    _waitingTimer?.cancel();
 
     setState(() {
       _isWaitingForResponse = false;
       _messages.add({
         'role': 'adri',
         'text': adriResponse.cleanText,
-        'translation': adriResponse.spanishTranslation,
+        'translation': adriResponse.userTranslation,
         'tagged': adriResponse.taggedText,
         'provider': adriResponse.providerUsed,
         'audio_base64': adriResponse.audioBase64,
@@ -239,48 +332,49 @@ class _ChatScreenState extends State<ChatScreen> {
     _scrollToBottom();
     unawaited(_persistCurrentHistory());
 
-    // Reproducir audio del backend
     if (adriResponse.audioBase64 != null && adriResponse.audioBase64!.isNotEmpty) {
       _speechState.setState_(AdriState.speaking);
       await _playAudioFromBase64(adriResponse.audioBase64!, adriResponse.visemes);
       _speechState.setState_(AdriState.idle);
     } else {
-      // Fallback: usar TTS local (flutter_tts)
-      await _ttsService.precache(adriResponse.cleanText);
-      await Future.delayed(const Duration(milliseconds: 150));
-      _speechState.setState_(AdriState.speaking);
-      await _ttsService.speakResponse(adriResponse.cleanText);
-      _speechState.setState_(AdriState.idle);
+      final cleanText = adriResponse.cleanText.trim();
+      if (cleanText.isNotEmpty) {
+        await _ttsService.precache(cleanText);
+        await Future.delayed(const Duration(milliseconds: 150));
+        _speechState.setState_(AdriState.speaking);
+        await _ttsService.speakResponse(cleanText);
+        _speechState.setState_(AdriState.idle);
+      }
     }
 
-    // Traducción al español con TTS local (solo si hay texto y no estamos en español)
-    if (adriResponse.spanishTranslation.isNotEmpty && _currentLanguage != 'es') {
-      await _ttsService.speakTranslation(adriResponse.spanishTranslation);
+    final translation = adriResponse.userTranslation.trim();
+    if (translation.isNotEmpty && _detectedUserLanguage != _currentLanguage) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      await _playTranslationAudio(translation, _detectedUserLanguage);
+    } else if (translation.isNotEmpty) {
+      Logger.log('Traducción omitida porque el idioma del usuario coincide con el avatar');
     }
 
     if (mounted) setState(() => _isProcessing = false);
   }
 
-  /// Reproduce audio desde base64 y actualiza el avatar con visemes (si existen).
   Future<void> _playAudioFromBase64(String base64, List? visemes) async {
     try {
       final bytes = base64Decode(base64);
-      final source = ByteSource.fromBytes(bytes);
+      if (bytes.isEmpty) return;
+      final source = BytesSource(bytes);
       await _audioPlayer.play(source);
-      // Animación simple si hay visemes
+      await _audioPlayer.onPlayerComplete.first;
+
       if (visemes != null && visemes.isNotEmpty) {
-        // Por simplicidad, mostramos una expresión fija durante la reproducción
         setState(() {
           _currentAvatarExpression = AvatarExpression.sonrisaAbierta;
         });
-        // Esperar a que termine el audio (no podemos saber la duración fácilmente)
-        // Usamos un temporizador aproximado de 2 segundos
         await Future.delayed(const Duration(seconds: 2));
         setState(() {
           _currentAvatarExpression = null;
         });
       } else {
-        // Sin visemes, mostrar expresión genérica durante 2s
         setState(() {
           _currentAvatarExpression = AvatarExpression.sonrisaAbierta;
         });
@@ -294,7 +388,45 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  /// Replay de un mensaje guardado (usa el audio almacenado si existe)
+  Future<void> _playTranslationAudio(String translationText, String userLang) async {
+    if (translationText.trim().isEmpty) return;
+    try {
+      final voiceId = _voiceIdForLanguage(userLang);
+      final response = await http.post(
+        Uri.parse('${ApiConfig.backendBaseUrl}/tts'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'text': translationText,
+          'voice_id': voiceId,
+          'lang': userLang,
+          'rate': -10,
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final audioBase64 = data['audio_base64'] as String?;
+        if (audioBase64 != null && audioBase64.isNotEmpty) {
+          final bytes = base64Decode(audioBase64);
+          if (bytes.isNotEmpty) {
+            final source = BytesSource(bytes);
+            await _audioPlayer.play(source);
+            await _audioPlayer.onPlayerComplete.first;
+            return;
+          }
+        }
+      }
+      if (translationText.trim().isNotEmpty) {
+        await _ttsService.speakTranslation(translationText);
+      }
+    } catch (e) {
+      Logger.error('Error reproduciendo traducción: $e');
+      if (translationText.trim().isNotEmpty) {
+        await _ttsService.speakTranslation(translationText);
+      }
+    }
+  }
+
   Future<void> _replayMessage(Map<String, dynamic> msg) async {
     if (_isProcessing) return;
     final audioBase64 = msg['audio_base64'] as String?;
@@ -305,13 +437,14 @@ class _ChatScreenState extends State<ChatScreen> {
       _speechState.setState_(AdriState.idle);
       if (mounted) setState(() => _isProcessing = false);
     } else {
-      // fallback con TTS local
       final clean = msg['text'] as String;
       final translation = (msg['translation'] as String?) ?? '';
       setState(() => _isProcessing = true);
       _speechState.setState_(AdriState.speaking);
-      await _ttsService.speakResponse(clean);
-      if (translation.isNotEmpty) {
+      if (clean.trim().isNotEmpty) {
+        await _ttsService.speakResponse(clean);
+      }
+      if (translation.trim().isNotEmpty) {
         await _ttsService.speakTranslation(translation);
       }
       _speechState.setState_(AdriState.idle);
@@ -319,7 +452,6 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  // ─── MICRÓFONO (CORREGIDO) ─────────────────────────────
   Future<void> _onMicPressed() async {
     if (_speechState.state == AdriState.listening) {
       await _speechService.stop();
@@ -327,7 +459,6 @@ class _ChatScreenState extends State<ChatScreen> {
       return;
     }
     _speechState.setState_(AdriState.listening);
-    // Usamos el locale del teléfono (o español por defecto)
     final micLocale = await _speechService.systemLocaleOrSpanish();
     final started = await _speechService.listen(
       localeId: micLocale,
@@ -336,8 +467,6 @@ class _ChatScreenState extends State<ChatScreen> {
         _speechState.setState_(AdriState.idle);
         if (text.trim().isNotEmpty) {
           setState(() => _controller.text = text);
-          // Opcional: enviar automáticamente después de un breve delay
-          // _sendMessage(text);
         }
       },
     );
@@ -484,7 +613,6 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 }
 
-// ─── BURBUJA DE CHAT ─────────────────────────────────────────
 class _ChatBubble extends StatelessWidget {
   final String text;
   final bool isUser;
@@ -574,7 +702,6 @@ class _ChatBubble extends StatelessWidget {
   }
 }
 
-// ─── INDICADOR DE TIPEO ─────────────────────────────────────
 class _TypingIndicator extends StatefulWidget {
   const _TypingIndicator();
 

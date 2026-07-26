@@ -5,11 +5,9 @@ import 'core/services/hybrid_tts_service.dart';
 import 'core/services/ai_service.dart';
 import 'core/services/speech_service.dart';
 import 'core/services/backend_warmup_service.dart';
-import 'features/vocabulary/presentation/screens/chat_screen.dart';
+import 'core/screens/splash_screen.dart';
 
 void main() {
-  // Precalienta el backend en paralelo (Render free tier se
-  // "duerme" tras inactividad); no bloquea el arranque de la UI.
   BackendWarmupService().warmup();
   runApp(const AdriApp());
 }
@@ -38,7 +36,7 @@ class AdriApp extends StatelessWidget {
             surface: Color(0xFF1A1A2E),
           ),
         ),
-        home: const ChatScreen(),
+        home: const SplashScreen(),
       ),
     );
   }

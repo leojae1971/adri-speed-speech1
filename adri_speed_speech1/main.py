@@ -6,6 +6,7 @@ import asyncio
 import base64
 import json
 import os
+import re
 
 _google_creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
 if _google_creds_json:
@@ -23,7 +24,6 @@ from startup_checks import validate_llm_catalogs
 
 app = FastAPI(title="ADRI SPEED SPEECH Backend")
 
-# Mapa de voces por idioma (TODAS FEMENINAS)
 DEFAULT_VOICES = {
     'en': 'en-US-JennyNeural',
     'es': 'es-ES-ElviraNeural',
@@ -37,51 +37,53 @@ DEFAULT_VOICES = {
     'ar': 'ar-SA-ZariyahNeural',
 }
 
+def is_valid_text(text: str) -> bool:
+    return bool(re.search(r'[a-zA-ZáéíóúÁÉÍÓÚñÑ]', text))
+
+def clean_tags(text: str) -> str:
+    return re.sub(r'\[[A-ZÁÉÍÓÚÑ_ ]+\]', '', text).strip()
+
 @app.on_event("startup")
 async def _startup_model_validation():
     await validate_llm_catalogs([
         ("groq", route_chat.__self__ if hasattr(route_chat, '__self__') else None),
     ])
 
-
 class ChatRequest(BaseModel):
     messages: list[dict]
     json_mode: bool = False
-    voice_id: str = ""   # opcional, se infiere de lang si no se da
-    lang: str = "en"     # idioma para la voz
-
+    voice_id: str = ""
+    lang: str = "en"
+    rate: int = -10
 
 class TtsRequest(BaseModel):
     text: str
     voice_id: str = "en-US-AvaNeural"
     lang: str = "en-US"
-
+    rate: int = -10
 
 @app.post("/chat")
 async def chat(req: ChatRequest):
     try:
-        # Inferir voice_id si no se proporciona
         voice_id = req.voice_id or DEFAULT_VOICES.get(req.lang, 'en-US-JennyNeural')
-
-        # Obtener respuesta del LLM
         result = await route_chat(req.messages, json_mode=req.json_mode)
+        full_text = result.get("text", "")
+        avatar_response = full_text.split("===TRANS===")[0].strip() if "===TRANS===" in full_text else full_text
+        clean_avatar_response = clean_tags(avatar_response)
 
-        text = result.get("text", "")
         audio_base64 = None
         visemes = []
 
-        if text:
+        if clean_avatar_response and is_valid_text(clean_avatar_response):
             try:
-                # Generar audio con la voz adecuada (edge-tts es el primero en la cadena)
-                tts_result = await route_tts(text, voice_id, req.lang)
+                tts_result = await route_tts(clean_avatar_response, voice_id, req.lang, rate=req.rate)
                 audio_base64 = base64.b64encode(tts_result["audio"]).decode("ascii")
-                visemes = estimate_visemes(text)
-            except Exception as e:
-                # Si falla, continuar sin audio
+                visemes = estimate_visemes(clean_avatar_response)
+            except Exception:
                 pass
 
         response = {
-            "text": text,
+            "text": full_text,
             "provider_used": result.get("provider_used"),
             "tokens": result.get("tokens"),
         }
@@ -91,20 +93,20 @@ async def chat(req: ChatRequest):
 
         if req.json_mode:
             try:
-                response["parsed"] = json.loads(text)
+                response["parsed"] = json.loads(full_text)
             except (json.JSONDecodeError, TypeError):
                 response["parsed"] = None
 
         return response
-
     except AllProvidersExhausted as e:
         raise HTTPException(status_code=503, detail=str(e))
 
-
 @app.post("/tts")
 async def tts(req: TtsRequest):
+    if not is_valid_text(req.text):
+        return {"audio_base64": "", "provider_used": "skipped", "visemes": []}
     try:
-        result = await route_tts(req.text, req.voice_id, req.lang)
+        result = await route_tts(req.text, req.voice_id, req.lang, rate=req.rate)
         return {
             "audio_base64": base64.b64encode(result["audio"]).decode("ascii"),
             "provider_used": result["provider_used"],
@@ -113,7 +115,6 @@ async def tts(req: TtsRequest):
     except AllProvidersExhausted as e:
         raise HTTPException(status_code=503, detail=str(e))
 
-
 @app.post("/transcribe")
 async def transcribe(file: UploadFile = File(...), lang: str = Form("en")):
     try:
@@ -121,7 +122,6 @@ async def transcribe(file: UploadFile = File(...), lang: str = Form("en")):
         return await route_stt(audio_bytes, lang)
     except AllProvidersExhausted as e:
         raise HTTPException(status_code=503, detail=str(e))
-
 
 @app.get("/health")
 async def health():
