@@ -1,34 +1,25 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/vocabulary_providers.dart';
 import '../../domain/entities/vocabulary_word.dart';
 
-class VocabularyReviewScreen extends StatefulWidget {
+class VocabularyReviewScreen extends ConsumerWidget {
   const VocabularyReviewScreen({super.key});
 
   @override
-  State<VocabularyReviewScreen> createState() => _VocabularyReviewScreenState();
-}
-
-class _VocabularyReviewScreenState extends State<VocabularyReviewScreen> {
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final asyncWords = ref.watch(vocabularyNotifierProvider);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Vocabulario para revisar'),
         backgroundColor: const Color(0xFF16213E),
       ),
-      body: Consumer<VocabularyNotifier>(
-        builder: (context, notifier, child) {
-          if (notifier.isLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (notifier.hasError) {
-            return Center(
-              child: Text('Error: ${notifier.error}'),
-            );
-          }
-          final words = notifier.valueOrNull ?? [];
+      body: asyncWords.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, stack) => Center(
+          child: Text('Error: $err', style: const TextStyle(color: Colors.white70)),
+        ),
+        data: (words) {
           if (words.isEmpty) {
             return const Center(
               child: Text(
@@ -84,6 +75,7 @@ class _VocabularyReviewScreenState extends State<VocabularyReviewScreen> {
                         children: [
                           _buildReviewButton(
                             context,
+                            ref,
                             word,
                             quality: 1,
                             label: '😅 Difícil',
@@ -91,6 +83,7 @@ class _VocabularyReviewScreenState extends State<VocabularyReviewScreen> {
                           ),
                           _buildReviewButton(
                             context,
+                            ref,
                             word,
                             quality: 3,
                             label: '🤔 Regular',
@@ -98,6 +91,7 @@ class _VocabularyReviewScreenState extends State<VocabularyReviewScreen> {
                           ),
                           _buildReviewButton(
                             context,
+                            ref,
                             word,
                             quality: 5,
                             label: '✅ Fácil',
@@ -118,6 +112,7 @@ class _VocabularyReviewScreenState extends State<VocabularyReviewScreen> {
 
   Widget _buildReviewButton(
     BuildContext context,
+    WidgetRef ref,
     VocabularyWord word, {
     required int quality,
     required String label,
@@ -132,8 +127,7 @@ class _VocabularyReviewScreenState extends State<VocabularyReviewScreen> {
         ),
       ),
       onPressed: () {
-        Provider.of<VocabularyNotifier>(context, listen: false)
-            .reviewWord(word.id, quality);
+        ref.read(vocabularyNotifierProvider.notifier).reviewWord(word.id, quality);
       },
       child: Text(label),
     );

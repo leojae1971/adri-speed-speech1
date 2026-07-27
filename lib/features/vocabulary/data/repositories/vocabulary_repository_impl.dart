@@ -16,10 +16,10 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
     try {
       final driftItems = await _database.getWordsToReview(currentDate);
       final domainItems = driftItems.map((item) => _mapToDomain(item)).toList();
-      return Either.right(domainItems);
-    } catch (e, stackTrace) {
-      LinguaLogger.error('Error recuperando palabras desde SQLite', e, stackTrace);
-      return Either.left(const DatabaseFailure('No se pudo acceder al almacén de datos de vocabulario.'));
+      return right(domainItems);
+    } catch (e, st) {
+      Logger.error('Error recuperando palabras desde SQLite', error: e, stackTrace: st);
+      return left(const DatabaseFailure('No se pudo acceder al almacén de datos de vocabulario.'));
     }
   }
 
@@ -41,10 +41,10 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
         lastReviewed: Value(word.lastReviewed),
       );
       await _database.insertOrUpdateVocabulary(companion);
-      return Either.right(unit);
-    } catch (e, stackTrace) {
-      LinguaLogger.error('Error guardando palabra en la base de datos', e, stackTrace);
-      return Either.left(const DatabaseFailure('Error al guardar el nuevo término de vocabulario.'));
+      return right(unit);
+    } catch (e, st) {
+      Logger.error('Error guardando palabra en la base de datos', error: e, stackTrace: st);
+      return left(const DatabaseFailure('Error al guardar el nuevo término de vocabulario.'));
     }
   }
 
@@ -58,10 +58,10 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
   ) async {
     try {
       await _database.updateSrsData(id, easeFactor, intervalDays, repetitions, nextReview);
-      return Either.right(unit);
-    } catch (e, stackTrace) {
-      LinguaLogger.error('Error actualizando métricas SRS en base de datos', e, stackTrace);
-      return Either.left(const DatabaseFailure('Fallo al actualizar el historial de repetición espaciada.'));
+      return right(unit);
+    } catch (e, st) {
+      Logger.error('Error actualizando métricas SRS en base de datos', error: e, stackTrace: st);
+      return left(const DatabaseFailure('Fallo al actualizar el historial de repetición espaciada.'));
     }
   }
 
@@ -69,10 +69,10 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
   Future<Either<Failure, Unit>> deleteWord(int id) async {
     try {
       await _database.deleteVocabulary(id);
-      return Either.right(unit);
-    } catch (e, stackTrace) {
-      LinguaLogger.error('Error dejando palabra de la base de datos', e, stackTrace);
-      return Either.left(const DatabaseFailure('No se pudo eliminar el elemento de vocabulario.'));
+      return right(unit);
+    } catch (e, st) {
+      Logger.error('Error eliminando palabra de la base de datos', error: e, stackTrace: st);
+      return left(const DatabaseFailure('No se pudo eliminar el elemento de vocabulario.'));
     }
   }
 
