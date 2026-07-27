@@ -1,4 +1,4 @@
-/// Configuración de personalidad de Adri — 35 idiomas + prompt ultrasevero
+/// Configuración de personalidad de Adri — 41 idiomas + prompt ultrasevero
 class AIPersonaConfig {
   static const String _formatBlock = '''
 RESPONSE FORMAT (MANDATORY, STRICTLY ENFORCED):
@@ -56,6 +56,13 @@ FAILURE TO FOLLOW THIS FORMAT WILL BREAK THE APPLICATION.
     'si': 'සමාවන්න, මට තේරුණේ නැහැ. නැවත උත්සාහ කරන්න පුළුවන් ද?',
     'ne': 'माफ गर्नुहोस्, मैले बुझिन। फेरि प्रयास गर्न सक्नुहुन्छ?',
     'uz': 'Kechirasiz, tushunmadim. Qayta urinib ko‘rasizmi?',
+    // 6 nuevos
+    'sv': 'Förlåt, jag förstod inte. Kan du försöka igen?',
+    'da': 'Undskyld, jeg forstod ikke. Kan du prøve igen?',
+    'nb': 'Beklager, jeg forstod ikke. Kan du prøve igjen?',
+    'fi': 'Anteeksi, en ymmärtänyt. Voitko yrittää uudelleen?',
+    'cs': 'Promiňte, nerozuměl jsem. Můžete to zkusit znovu?',
+    'hu': 'Sajnálom, nem értettem. Megpróbálnád újra?',
   };
 
   static String systemPromptFor(String targetLang, String userLang) {
@@ -96,6 +103,13 @@ FAILURE TO FOLLOW THIS FORMAT WILL BREAK THE APPLICATION.
       'si': 'Sinhala',
       'ne': 'Nepali',
       'uz': 'Uzbek',
+      // 6 nuevos
+      'sv': 'Swedish',
+      'da': 'Danish',
+      'nb': 'Norwegian',
+      'fi': 'Finnish',
+      'cs': 'Czech',
+      'hu': 'Hungarian',
     };
 
     final targetName = langNames[targetLang] ?? 'English';

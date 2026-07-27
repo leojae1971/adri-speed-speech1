@@ -70,7 +70,13 @@ class _ChatScreenState extends State<ChatScreen> {
       {'code': 'el', 'flag': '🇬🇷', 'label': 'Ελληνικά'},
       {'code': 'nl', 'flag': '🇳🇱', 'label': 'Nederlands'},
       {'code': 'tr', 'flag': '🇹🇷', 'label': 'Türkçe'},
-      {'code': 'he', 'flag': '🇮🇱', 'label': 'עברית'}, // Hebreo
+      {'code': 'he', 'flag': '🇮🇱', 'label': 'עברית'},
+      {'code': 'sv', 'flag': '🇸🇪', 'label': 'Svenska'},
+      {'code': 'da', 'flag': '🇩🇰', 'label': 'Dansk'},
+      {'code': 'nb', 'flag': '🇳🇴', 'label': 'Norsk'},
+      {'code': 'fi', 'flag': '🇫🇮', 'label': 'Suomi'},
+      {'code': 'cs', 'flag': '🇨🇿', 'label': 'Čeština'},
+      {'code': 'hu', 'flag': '🇭🇺', 'label': 'Magyar'}, // Hebreo
       {'code': 'fa', 'flag': '🇮🇷', 'label': 'فارسی'}, // Persa
     ],
     '🌏 Asia': [
@@ -696,6 +702,16 @@ class _ChatScreenState extends State<ChatScreen> {
       appBar: AppBar(
         title: const Text('Adri Speed Speech'),
         actions: [
+          // Botón de vocabulario
+          IconButton(
+            icon: const Icon(Icons.book),
+            onPressed: () => Navigator.pushNamed(context, '/vocabulary'),
+          ),
+          // Botón de estadísticas
+          IconButton(
+            icon: const Icon(Icons.analytics),
+            onPressed: () => Navigator.pushNamed(context, '/statistics'),
+          ),
           // Botón de velocidad TTS
           PopupMenuButton<int>(
             icon: const Icon(Icons.speed),

@@ -5,9 +5,15 @@ import 'core/services/hybrid_tts_service.dart';
 import 'core/services/ai_service.dart';
 import 'core/services/speech_service.dart';
 import 'core/services/backend_warmup_service.dart';
+import 'core/services/notification_service.dart';
 import 'core/screens/splash_screen.dart';
+import 'features/vocabulary/presentation/screens/vocabulary_review_screen.dart';
+import 'features/statistics/presentation/screens/statistics_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await NotificationService.initialize();
+  await NotificationService.scheduleDailyReminder();
   BackendWarmupService().warmup();
   runApp(const AdriApp());
 }
@@ -37,6 +43,10 @@ class AdriApp extends StatelessWidget {
           ),
         ),
         home: const SplashScreen(),
+        routes: {
+          '/vocabulary': (context) => const VocabularyReviewScreen(),
+          '/statistics': (context) => const StatisticsScreen(),
+        },
       ),
     );
   }

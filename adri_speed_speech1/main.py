@@ -25,9 +25,10 @@ from startup_checks import validate_llm_catalogs
 app = FastAPI(title="ADRI SPEED SPEECH Backend")
 
 # ============================================================
-# MAPA DE VOCES PARA 35 IDIOMAS (TODAS FEMENINAS)
+# MAPA DE VOCES PARA 41 IDIOMAS (TODAS FEMENINAS)
 # ============================================================
 DEFAULT_VOICES = {
+    # 35 existentes
     'en': 'en-US-JennyNeural',
     'es': 'es-ES-ElviraNeural',
     'sw': 'sw-KE-ZuriNeural',
@@ -64,13 +65,20 @@ DEFAULT_VOICES = {
     'si': 'si-LK-ThiliniNeural',
     'ne': 'ne-NP-HemkalaNeural',
     'uz': 'uz-UZ-MadinaNeural',
+    # 6 nuevos idiomas
+    'sv': 'sv-SE-SofieNeural',      # Sueco
+    'da': 'da-DK-ChristelNeural',   # Danés
+    'nb': 'nb-NO-IselinNeural',     # Noruego
+    'fi': 'fi-FI-NooraNeural',      # Finlandés
+    'cs': 'cs-CZ-VlastaNeural',     # Checo
+    'hu': 'hu-HU-NoemiNeural',      # Húngaro
 }
 
 def is_valid_text(text: str) -> bool:
-    return bool(re.search(r'[a-zA-ZáéíóúÁÉÍÓÚñÑğüşıöçİĞÜŞIÖÇ]', text))
+    return bool(re.search(r'[a-zA-ZáéíóúÁÉÍÓÚñÑğüşıöçİĞÜŞIÖÇåäöÅÄÖ]', text))
 
 def clean_tags(text: str) -> str:
-    return re.sub(r'\[[A-ZÁÉÍÓÚÑ_ğüşıöçİĞÜŞIÖÇ ]+\]', '', text).strip()
+    return re.sub(r'\[[A-ZÁÉÍÓÚÑ_ğüşıöçİĞÜŞIÖÇåäöÅÄÖ ]+\]', '', text).strip()
 
 @app.on_event("startup")
 async def _startup_model_validation():
