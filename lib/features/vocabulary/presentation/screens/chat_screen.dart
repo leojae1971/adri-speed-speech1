@@ -426,7 +426,7 @@ class _ChatScreenState extends State<ChatScreen> {
     // Traducción con retraso de 200ms
     final translation = adriResponse.userTranslation.trim();
     if (translation.isNotEmpty && _detectedUserLanguage != _currentLanguage) {
-      await Future.delayed(const Duration(milliseconds: 200));
+      
       await _playTranslationAudio(translation, _detectedUserLanguage);
     } else if (translation.isNotEmpty) {
       Logger.log('Traducción omitida porque el idioma del usuario coincide con el avatar');
@@ -592,7 +592,7 @@ class _ChatScreenState extends State<ChatScreen> {
         });
         
         _autoSendTimer?.cancel();
-        _autoSendTimer = Timer(const Duration(milliseconds: 1500), () {
+        _autoSendTimer = Timer(const Duration(milliseconds: 100), () {
           if (_partialText.trim().isNotEmpty) {
             _speechState.setState_(AdriState.idle);
             _sendMessage(_partialText);

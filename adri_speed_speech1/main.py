@@ -24,6 +24,9 @@ from startup_checks import validate_llm_catalogs
 
 app = FastAPI(title="ADRI SPEED SPEECH Backend")
 
+# ============================================================
+# MAPA DE VOCES PARA 28 IDIOMAS (TODAS FEMENINAS)
+# ============================================================
 DEFAULT_VOICES = {
     'en': 'en-US-JennyNeural',
     'es': 'es-ES-ElviraNeural',
@@ -35,13 +38,32 @@ DEFAULT_VOICES = {
     'pt': 'pt-PT-RaquelNeural',
     'de': 'de-DE-KatjaNeural',
     'ar': 'ar-SA-ZariyahNeural',
+    'tr': 'tr-TR-EmelNeural',
+    'suk': 'sw-KE-ZuriNeural',  # Fallback: suajili (no hay voz específica para sukuma)
+    'gu': 'gu-IN-DhwaniNeural',
+    'ja': 'ja-JP-NanamiNeural',
+    'ko': 'ko-KR-SunHiNeural',
+    'th': 'th-TH-PremwadeeNeural',
+    'vi': 'vi-VN-HoaiMyNeural',
+    'id': 'id-ID-GadisNeural',
+    'bn': 'bn-IN-TanishaaNeural',
+    'pa': 'pa-IN-GurpreetNeural',
+    'ta': 'ta-IN-PallaviNeural',
+    'my': 'my-MM-NilarNeural',
+    'tl': 'tl-PH-AngeloNeural',
+    'ro': 'ro-RO-AlinaNeural',
+    'el': 'el-GR-AthinaNeural',
+    'nl': 'nl-NL-ColetteNeural',
+    'pl': 'pl-PL-AgnieszkaNeural',
+    'uk': 'uk-UA-PolinaNeural',
+    'it': 'it-IT-ElsaNeural',
 }
 
 def is_valid_text(text: str) -> bool:
-    return bool(re.search(r'[a-zA-ZáéíóúÁÉÍÓÚñÑ]', text))
+    return bool(re.search(r'[a-zA-ZáéíóúÁÉÍÓÚñÑğüşıöçİĞÜŞIÖÇ]', text))
 
 def clean_tags(text: str) -> str:
-    return re.sub(r'\[[A-ZÁÉÍÓÚÑ_ ]+\]', '', text).strip()
+    return re.sub(r'\[[A-ZÁÉÍÓÚÑ_ğüşıöçİĞÜŞIÖÇ ]+\]', '', text).strip()
 
 @app.on_event("startup")
 async def _startup_model_validation():
@@ -68,7 +90,12 @@ async def chat(req: ChatRequest):
         voice_id = req.voice_id or DEFAULT_VOICES.get(req.lang, 'en-US-JennyNeural')
         result = await route_chat(req.messages, json_mode=req.json_mode)
         full_text = result.get("text", "")
-        avatar_response = full_text.split("===TRANS===")[0].strip() if "===TRANS===" in full_text else full_text
+        
+        if "===TRANS===" in full_text:
+            avatar_response = full_text.split("===TRANS===")[0].strip()
+        else:
+            avatar_response = full_text
+        
         clean_avatar_response = clean_tags(avatar_response)
 
         audio_base64 = None

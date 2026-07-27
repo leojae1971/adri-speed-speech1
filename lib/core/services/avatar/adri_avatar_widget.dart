@@ -11,10 +11,6 @@ class AdriAvatarWidget extends StatefulWidget {
   final double amplitude;
   final String language;
   final VoidCallback? onLanguageTap;
-  // Si viene distinto de null, pisa el viseme calculado por
-  // amplitud y dibuja la expresión completa (cejas, ojos, boca)
-  // de las 15 posiciones. Si es null, el widget se comporta como
-  // antes (solo boca por amplitud, sin cejas).
   final AvatarExpression? expressionOverride;
 
   const AdriAvatarWidget({
@@ -42,7 +38,6 @@ class _AdriAvatarWidgetState extends State<AdriAvatarWidget>
   Timer? _blinkTimer;
   Viseme _currentViseme = Viseme.closed;
 
-  static const Color _lipColor = Color(0xFFCC8E8E);
   static const Color _skinColor = Color(0xFFF5D0C5);
   static const Color _eyeColor = Color(0xFF2D1B4E);
   static const Color _hairColor = Color(0xFF6B3FA0);
@@ -106,26 +101,48 @@ class _AdriAvatarWidgetState extends State<AdriAvatarWidget>
     super.dispose();
   }
 
+  // ============================================================
+  // MAPA DE AVATARES (ACTUALIZADO CON 28 IDIOMAS)
+  // ============================================================
   String get _avatarAsset {
     return switch (widget.language) {
+      'en' => 'assets/avatars/adri_en.png',
+      'es' => 'assets/avatars/adri_sp.png',
       'sw' => 'assets/avatars/adri_sw.png',
       'zh' => 'assets/avatars/adri_zh.png',
-      // Fotos reales (ya en assets/avatars/) — si alguno de estos
-      // nombres no coincide con el archivo real, avisar para
-      // corregirlo aquí.
       'hi' => 'assets/avatars/adri_hi.png',
       'fr' => 'assets/avatars/adri_fr.png',
       'ru' => 'assets/avatars/adri_ru.png',
       'pt' => 'assets/avatars/adri_pt.png',
       'de' => 'assets/avatars/adri_de.png',
       'ar' => 'assets/avatars/adri_ar.png',
-      'es' => 'assets/avatars/adri_sp.png',
-      _    => 'assets/avatars/adri_en.png',
+      'tr' => 'assets/avatars/adri_tr.png',
+      'suk' => 'assets/avatars/adri_suk.png',
+      'gu' => 'assets/avatars/adri_gu.png',
+      'ja' => 'assets/avatars/adri_ja.png',
+      'ko' => 'assets/avatars/adri_ko.png',
+      'th' => 'assets/avatars/adri_th.png',
+      'vi' => 'assets/avatars/adri_vi.png',
+      'id' => 'assets/avatars/adri_id.png',
+      'bn' => 'assets/avatars/adri_bn.png',
+      'pa' => 'assets/avatars/adri_pa.png',
+      'ta' => 'assets/avatars/adri_ta.png',
+      'my' => 'assets/avatars/adri_my.png',
+      'tl' => 'assets/avatars/adri_tl.png',
+      'ro' => 'assets/avatars/adri_ro.png',
+      'el' => 'assets/avatars/adri_el.png',
+      'nl' => 'assets/avatars/adri_nl.png',
+      'pl' => 'assets/avatars/adri_pl.png',
+      'uk' => 'assets/avatars/adri_uk.png',
+      'it' => 'assets/avatars/adri_it.png',
+      _ => 'assets/avatars/adri_en.png',
     };
   }
 
   String get _languageName {
     return switch (widget.language) {
+      'en' => 'English Voice',
+      'es' => 'Voz en Español',
       'sw' => 'Swahili Voice',
       'zh' => 'Zhong Wen Yu Yin',
       'hi' => 'Hindi Voice',
@@ -134,13 +151,33 @@ class _AdriAvatarWidgetState extends State<AdriAvatarWidget>
       'pt' => 'Voz Portuguesa',
       'de' => 'Deutsche Stimme',
       'ar' => 'Sawt Arabi',
-      'es' => 'Voz en Español',
-      _    => 'English Voice',
+      'tr' => 'Türkçe Ses',
+      'suk' => 'Sukuma Voice',
+      'gu' => 'Gujarati Voice',
+      'ja' => '日本語の声',
+      'ko' => '한국어 음성',
+      'th' => 'เสียงไทย',
+      'vi' => 'Giọng Việt',
+      'id' => 'Suara Indonesia',
+      'bn' => 'বাংলা ভয়েস',
+      'pa' => 'ਪੰਜਾਬੀ ਆਵਾਜ਼',
+      'ta' => 'தமிழ் குரல்',
+      'my' => 'မြန်မာအသံ',
+      'tl' => 'Boses Tagalog',
+      'ro' => 'Voce Română',
+      'el' => 'Ελληνική φωνή',
+      'nl' => 'Nederlandse Stem',
+      'pl' => 'Głos Polski',
+      'uk' => 'Український голос',
+      'it' => 'Voce Italiana',
+      _ => 'English Voice',
     };
   }
 
   String get _flagEmoji {
     return switch (widget.language) {
+      'en' => '🇬🇧',
+      'es' => '🇪🇸',
       'sw' => '🇹🇿',
       'zh' => '🇨🇳',
       'hi' => '🇮🇳',
@@ -149,37 +186,45 @@ class _AdriAvatarWidgetState extends State<AdriAvatarWidget>
       'pt' => '🇵🇹',
       'de' => '🇩🇪',
       'ar' => '🇸🇦',
-      'es' => '🇪🇸',
-      _    => '🇬🇧',
+      'tr' => '🇹🇷',
+      'suk' => '🇹🇿',
+      'gu' => '🇮🇳',
+      'ja' => '🇯🇵',
+      'ko' => '🇰🇷',
+      'th' => '🇹🇭',
+      'vi' => '🇻🇳',
+      'id' => '🇮🇩',
+      'bn' => '🇧🇩',
+      'pa' => '🇮🇳',
+      'ta' => '🇮🇳',
+      'my' => '🇲🇲',
+      'tl' => '🇵🇭',
+      'ro' => '🇷🇴',
+      'el' => '🇬🇷',
+      'nl' => '🇳🇱',
+      'pl' => '🇵🇱',
+      'uk' => '🇺🇦',
+      'it' => '🇮🇹',
+      _ => '🇬🇧',
     };
   }
 
-  // Color de cejas por avatar -- antes era un solo castaño fijo
-  // para los 10 idiomas, que no calzaba con cabello oscuro/negro en
-  // varios de ellos. en/sw/zh son las 3 fotos originales (colores
-  // ajustados a cada una); el resto usa un tono neutro oscuro por
-  // defecto hasta poder calibrar cada foto nueva individualmente.
-  // Medido con reconocimiento facial sobre las 10 fotos reales
-  // (clúster de píxeles más oscuros en la zona de la ceja de cada
-  // una -- no un promedio con la piel, que daba tonos muy claros).
   Color get _browColorForLanguage {
     return switch (widget.language) {
-      'en' => const Color(0xFF46312B), // rubia -- ceja castaño medio
-      'es' => const Color(0xFF3F281F), // castaño oscuro
-      'sw' => const Color(0xFF342216), // casi negro
-      'zh' => const Color(0xFF56392F), // castaño oscuro cálido
-      'hi' => const Color(0xFF261C1C), // negro
-      'fr' => const Color(0xFF2C2121), // negro-castaño
-      'ru' => const Color(0xFF2C2020), // negro-castaño
-      'pt' => const Color(0xFF221919), // negro
-      'de' => const Color(0xFF3E261D), // castaño medio
-      'ar' => const Color(0xFF23191B), // negro
-      _    => const Color(0xFF2A211C),
+      'en' => const Color(0xFF46312B),
+      'es' => const Color(0xFF3F281F),
+      'sw' => const Color(0xFF342216),
+      'zh' => const Color(0xFF56392F),
+      'hi' => const Color(0xFF261C1C),
+      'fr' => const Color(0xFF2C2121),
+      'ru' => const Color(0xFF2C2020),
+      'pt' => const Color(0xFF221919),
+      'de' => const Color(0xFF3E261D),
+      'ar' => const Color(0xFF23191B),
+      _ => const Color(0xFF2A211C),
     };
   }
 
-  // Medido con reconocimiento facial sobre las 10 fotos reales
-  // (color promedio de la zona rellena del labio de cada avatar).
   Color get _lipColorForLanguage {
     return switch (widget.language) {
       'en' => const Color(0xFF9A7361),
@@ -192,18 +237,18 @@ class _AdriAvatarWidgetState extends State<AdriAvatarWidget>
       'pt' => const Color(0xFF97615D),
       'de' => const Color(0xFFAA6B65),
       'ar' => const Color(0xFF9B6763),
-      _    => const Color(0xFF9A7361),
+      _ => const Color(0xFF9A7361),
     };
   }
 
-    double _getMouthHeight() {
+  double _getMouthHeight() {
     return switch (_currentViseme) {
       Viseme.closed => 0.02,
-      Viseme.half   => 0.04,
-      Viseme.open   => 0.06,
-      Viseme.wide   => 0.08,
-      Viseme.round  => 0.07,
-      Viseme.smile  => 0.03,
+      Viseme.half => 0.04,
+      Viseme.open => 0.06,
+      Viseme.wide => 0.08,
+      Viseme.round => 0.07,
+      Viseme.smile => 0.03,
     };
   }
 
@@ -349,15 +394,7 @@ class _FacePainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     final scale = size.width;
 
-    // Coordenadas recalibradas: la foto (768x1376) se muestra en
-    // un contenedor CUADRADO con BoxFit.cover, que recorta ~44% de
-    // la imagen (22% arriba + 22% abajo) para llenar el cuadrado.
-    // X no se recorta (el ancho SÍ llena el cuadrado exactamente),
-    // por eso solo Y cambia respecto a la posición real en la foto.
-    const browRy = 0.090; // medido + ajuste fino según feedback visual
-    // Overlay de ojos desactivado a pedido: la foto ya trae los ojos
-    // reales, y el dibujo procedural encima se veía desalineado.
-    // Se conservan cejas y boca (mueve bien y sí se ve correcto).
+    const browRy = 0.090;
     _drawEyebrow(canvas, center, scale, 0.40, browRy);
     _drawEyebrow(canvas, center, scale, 0.61, browRy);
 
@@ -376,19 +413,12 @@ class _FacePainter extends CustomPainter {
       ..strokeWidth = 2.2
       ..strokeCap = StrokeCap.round;
 
-    // Movimiento x3 más visible que antes: al no dibujar los ojos,
-    // la ceja quedó como el único canal (junto a la boca) para que
-    // se note el cambio de expresión, así que el desplazamiento
-    // tenía que ser más notorio (antes: 120.0, casi imperceptible).
-    final liftNorm = browLift / 28.0 * scale; // más sensible -- las expresiones no se notaban
+    final liftNorm = browLift / 28.0 * scale;
     final pos = Offset(
       center.dx + (rx - 0.5) * scale,
       center.dy + (ry - 0.5) * scale + liftNorm,
     );
 
-    // Ceja más angosta (antes 0.05 de radio, ahora 0.036) y con un
-    // arco natural sutil en vez de una línea recta pegada encima de
-    // la foto -- se ve más como una ceja real y menos como un trazo.
     final halfWidth = 0.036 * scale;
     final archHeight = 0.010 * scale;
 
@@ -402,66 +432,15 @@ class _FacePainter extends CustomPainter {
     canvas.drawPath(path, paint);
   }
 
-  void _drawEye(Canvas canvas, Offset center, double scale, double rx, double ry) {
-    final eyePaint = Paint()
-      ..color = _eyeColor
-      ..style = PaintingStyle.fill;
-
-    final pos = Offset(
-      center.dx + (rx - 0.5) * scale,
-      center.dy + (ry - 0.5) * scale,
-    );
-
-    final radius = (0.040 + eyeOpen * 0.026) * scale;
-    canvas.drawCircle(pos, radius, eyePaint);
-
-    final shinePaint = Paint()
-      ..color = Colors.white.withOpacity(0.6)
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(
-      Offset(pos.dx - 0.01 * scale, pos.dy - 0.01 * scale),
-      0.012 * scale,
-      shinePaint,
-    );
-  }
-
-  void _drawClosedEye(Canvas canvas, Offset center, double scale, double rx, double ry) {
-    final paint = Paint()
-      ..color = _eyeColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-
-    final pos = Offset(
-      center.dx + (rx - 0.5) * scale,
-      center.dy + (ry - 0.5) * scale,
-    );
-
-    final path = Path()
-      ..moveTo(pos.dx - 0.03 * scale, pos.dy)
-      ..quadraticBezierTo(pos.dx, pos.dy + 0.005 * scale, pos.dx + 0.03 * scale, pos.dy);
-
-    canvas.drawPath(path, paint);
-  }
-
   void _drawMouth(Canvas canvas, Offset center, double scale) {
-    // Con la boca CERRADA no se dibuja nada -- se deja ver la boca
-    // real de la foto (siempre más fiel que cualquier forma pintada).
     if (viseme == Viseme.closed) return;
 
-    // Posición y ancho medidos con MediaPipe sobre las 10 fotos
-    // reales (promedio), transformados al recorte cuadrado de
-    // BoxFit.cover (ver nota en paint()).
     final mouthCenter = Offset(
       center.dx,
       center.dy + (0.374 - 0.5) * scale,
     );
     final width = 0.194 * scale;
 
-    // Rediseño: en vez de UN bloque de color (la "mancha" reportada),
-    // se dibujan labio SUPERIOR e INFERIOR como dos formas finas y
-    // SEPARADAS por un hueco pequeño -- el inferior un poco más
-    // lleno que el superior, como en una boca real. El hueco crece
-    // sutilmente según cuánto está "hablando" ese fragmento.
     final gap = _getMouthGap() * scale;
     final lipPaint = Paint()
       ..color = lipColor
@@ -487,8 +466,6 @@ class _FacePainter extends CustomPainter {
       Radius.circular(lowerThickness / 2),
     );
 
-    // Interior visible solo si de verdad hay separación entre los
-    // labios (evita un hueco oscuro visible en aperturas mínimas).
     if (gap > 1.0) {
       final innerPaint = Paint()
         ..color = const Color(0xFF2E1818)
@@ -504,17 +481,14 @@ class _FacePainter extends CustomPainter {
     canvas.drawRRect(lowerRect, lipPaint);
   }
 
-
-    double _getMouthGap() {
-    // Valores pequeños y sutiles a propósito -- el hueco entre labio
-    // superior e inferior, no la altura de un bloque completo.
+  double _getMouthGap() {
     return switch (viseme) {
       Viseme.closed => 0.0,
-      Viseme.half   => 0.014,
-      Viseme.open   => 0.028,
-      Viseme.wide   => 0.038,
-      Viseme.round  => 0.032,
-      Viseme.smile  => 0.006,
+      Viseme.half => 0.014,
+      Viseme.open => 0.028,
+      Viseme.wide => 0.038,
+      Viseme.round => 0.032,
+      Viseme.smile => 0.006,
     };
   }
 
