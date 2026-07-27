@@ -25,7 +25,7 @@ from startup_checks import validate_llm_catalogs
 app = FastAPI(title="ADRI SPEED SPEECH Backend")
 
 # ============================================================
-# MAPA DE VOCES PARA 28 IDIOMAS (TODAS FEMENINAS)
+# MAPA DE VOCES PARA 35 IDIOMAS (TODAS FEMENINAS)
 # ============================================================
 DEFAULT_VOICES = {
     'en': 'en-US-JennyNeural',
@@ -39,7 +39,7 @@ DEFAULT_VOICES = {
     'de': 'de-DE-KatjaNeural',
     'ar': 'ar-SA-ZariyahNeural',
     'tr': 'tr-TR-EmelNeural',
-    'suk': 'sw-KE-ZuriNeural',  # Fallback: suajili (no hay voz específica para sukuma)
+    'suk': 'sw-KE-ZuriNeural',
     'gu': 'gu-IN-DhwaniNeural',
     'ja': 'ja-JP-NanamiNeural',
     'ko': 'ko-KR-SunHiNeural',
@@ -57,6 +57,13 @@ DEFAULT_VOICES = {
     'pl': 'pl-PL-AgnieszkaNeural',
     'uk': 'uk-UA-PolinaNeural',
     'it': 'it-IT-ElsaNeural',
+    'fa': 'fa-IR-DilaraNeural',
+    'he': 'he-IL-HilaNeural',
+    'ms': 'ms-MY-YasminNeural',
+    'am': 'am-ET-MekdesNeural',
+    'si': 'si-LK-ThiliniNeural',
+    'ne': 'ne-NP-HemkalaNeural',
+    'uz': 'uz-UZ-MadinaNeural',
 }
 
 def is_valid_text(text: str) -> bool:
