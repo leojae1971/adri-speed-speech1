@@ -78,7 +78,7 @@ async def route_chat(messages: list[dict], json_mode: bool = False) -> dict:
     raise AllProvidersExhausted(f"Todos los LLM fallaron o están agotados. Último error: {last_error}")
 
 
-async def route_tts(text: str, voice_id: str, lang: str) -> dict:
+async def route_tts(text: str, voice_id: str, lang: str, rate: int = -10) -> dict:
     cached = get_cached_audio(text, voice_id, lang)
     if cached is not None:
         return {"audio": cached, "provider_used": "cache"}
@@ -95,7 +95,7 @@ async def route_tts(text: str, voice_id: str, lang: str) -> dict:
             continue
 
         try:
-            audio = await provider.synthesize(text, voice_id, lang)
+            audio = await provider.synthesize(text, voice_id, lang, rate=rate)
             quota_manager.record(key, limits.reset, chars=len(text))
             circuit_breaker.record_success(key)
             store_cached_audio(text, voice_id, lang, audio)

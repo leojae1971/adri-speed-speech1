@@ -13,12 +13,12 @@ from providers.base import TtsProvider
 class AzureTts(TtsProvider):
     name = "azure"
 
-    async def synthesize(self, text: str, voice_id: str, lang: str) -> bytes:
+    async def synthesize(self, text: str, voice_id: str, lang: str, rate: int = -10) -> bytes:
         speech_config = speechsdk.SpeechConfig(
             subscription=settings.azure_speech_key,
             region=settings.azure_speech_region,
         )
-        speech_config.speech_synthesis_voice_name = voice_id  # ej: "en-US-AvaNeural"
+        speech_config.speech_synthesis_voice_name = voice_id
         speech_config.set_speech_synthesis_output_format(
             speechsdk.SpeechSynthesisOutputFormat.Audio24Khz96KBitRateMonoMp3
         )
@@ -33,13 +33,6 @@ class GoogleWavenetTts(TtsProvider):
     name = "google_wavenet"
 
     def __init__(self):
-        # Inicialización perezosa a propósito: texttospeech.TextToSpeechClient()
-        # busca credenciales EN EL MOMENTO DE CONSTRUIRSE. Si esto se
-        # ejecuta al importar router.py (como pasaba antes) y no hay
-        # GOOGLE_APPLICATION_CREDENTIALS configurada, crashea el proceso
-        # completo al arrancar — ni siquiera Groq/Cerebras llegan a
-        # funcionar. Con el guard _tts_is_configured() en router.py,
-        # este cliente nunca se construye si faltan credenciales.
         self._client = None
 
     def _get_client(self):
@@ -47,11 +40,7 @@ class GoogleWavenetTts(TtsProvider):
             self._client = texttospeech.TextToSpeechClient()
         return self._client
 
-    async def synthesize(self, text: str, voice_id: str, lang: str) -> bytes:
-        # OJO: voice_id debe apuntar a una voz "Wavenet-*" o "Neural2-*".
-        # Si usas una voz "Standard-*" aquí, estarás consumiendo el tier
-        # de 4M (robótico) sin darte cuenta y rompiendo el requisito de
-        # calidad humana del proyecto.
+    async def synthesize(self, text: str, voice_id: str, lang: str, rate: int = -10) -> bytes:
         synthesis_input = texttospeech.SynthesisInput(text=text)
         voice = texttospeech.VoiceSelectionParams(language_code=lang, name=voice_id)
         audio_config = texttospeech.AudioConfig(audio_encoding=texttospeech.AudioEncoding.MP3)
@@ -69,8 +58,9 @@ class EdgeTts(TtsProvider):
     """
     name = "edge_tts"
 
-    async def synthesize(self, text: str, voice_id: str, lang: str) -> bytes:
-        communicate = edge_tts.Communicate(text, voice_id)  # ej: "en-US-AvaNeural"
+    async def synthesize(self, text: str, voice_id: str, lang: str, rate: int = -10) -> bytes:
+        rate_str = f"{rate:+d}%"
+        communicate = edge_tts.Communicate(text, voice_id, rate=rate_str)
         buffer = io.BytesIO()
         async for chunk in communicate.stream():
             if chunk["type"] == "audio":
