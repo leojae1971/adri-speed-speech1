@@ -592,7 +592,7 @@ class _ChatScreenState extends State<ChatScreen> {
         });
         
         _autoSendTimer?.cancel();
-        _autoSendTimer = Timer(const Duration(milliseconds: 100), () {
+        _autoSendTimer = Timer(Duration.zero,  () {
           if (_partialText.trim().isNotEmpty) {
             _speechState.setState_(AdriState.idle);
             _sendMessage(_partialText);
