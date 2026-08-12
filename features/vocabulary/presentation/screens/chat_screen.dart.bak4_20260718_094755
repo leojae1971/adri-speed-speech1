@@ -1,0 +1,570 @@
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../../../core/services/ai_service.dart';
+import '../../../../core/services/hybrid_tts_service.dart';
+import '../../../../core/services/speech_service.dart';
+import '../../../../core/services/avatar/adri_avatar_widget.dart';
+import '../../../../core/services/avatar/dialogue_script_parser.dart';
+import '../../../../core/utils/logger.dart';
+import '../../../../main.dart';
+import '../../../../core/services/database.dart';
+import 'package:drift/drift.dart' show Value;
+
+class ChatScreen extends StatefulWidget {
+  const ChatScreen({super.key});
+
+  @override
+  State<ChatScreen> createState() => _ChatScreenState();
+}
+
+class _ChatScreenState extends State<ChatScreen> {
+  final TextEditingController _controller = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  final List<Map<String, dynamic>> _messages = [];
+  String _currentLanguage = 'en';
+  bool _isProcessing = false;
+  bool _isWaitingForResponse = false;
+  AvatarExpression? _currentAvatarExpression;
+
+  late AppDatabase _db;
+
+  /// Mostrar de qué proveedor LLM vino cada respuesta (groq/cerebras/
+  /// gemini/...) debajo de la burbuja. Poner en false para producción
+  /// si no se quiere ese detalle visible al usuario final.
+  static const bool kShowProviderDebug = true;
+
+  late AIService _aiService;
+  late HybridTtsService _ttsService;
+  late SpeechService _speechService;
+  late AdriSpeechState _speechState;
+
+  @override
+  void initState() {
+    super.initState();
+    _aiService = context.read<AIService>();
+    _ttsService = context.read<HybridTtsService>();
+    _speechService = context.read<SpeechService>();
+    _speechState = context.read<AdriSpeechState>();
+
+    _db = context.read<AppDatabase>();
+
+    _ttsService.initialize();
+    _speechService.initialize();
+    _ttsService.setLanguage(_currentLanguage);
+
+    _loadHistory();
+  }
+
+  Future<void> _loadHistory() async {
+    final rows = await _db.getRecentChatMessages(_currentLanguage);
+    if (!mounted || rows.isEmpty) return;
+    setState(() {
+      _messages.addAll(rows.map((r) => {
+            'role': r.role,
+            'text': r.text,
+            'translation': r.translation,
+            'tagged': r.taggedText,
+            'provider': r.providerUsed,
+          }));
+    });
+    _scrollToBottom();
+  }
+
+  void _clearInputCompletely() {
+    _controller.clear();
+    setState(() {});
+  }
+
+  Future<void> _sendMessage() async {
+    final text = _controller.text.trim();
+    if (text.isEmpty || _isProcessing) return;
+
+    _clearInputCompletely();
+
+    setState(() {
+      _messages.add({'role': 'user', 'text': text});
+      _isProcessing = true;
+      _isWaitingForResponse = true;
+    });
+    _scrollToBottom();
+    unawaited(_db.insertChatMessage(ChatMessagesCompanion.insert(
+      role: 'user',
+      text: text,
+      language: _currentLanguage,
+    )));
+
+    _speechState.setState_(AdriState.waiting);
+
+    final adriResponse = await _aiService.sendMessage(text, lang: _currentLanguage);
+
+    setState(() {
+      _isWaitingForResponse = false;
+      _messages.add({
+        'role': 'adri',
+        'text': adriResponse.cleanText,
+        'translation': adriResponse.spanishTranslation,
+        'tagged': adriResponse.taggedText,
+        'provider': adriResponse.providerUsed,
+      });
+    });
+    _scrollToBottom();
+    unawaited(_db.insertChatMessage(ChatMessagesCompanion.insert(
+      role: 'adri',
+      text: adriResponse.cleanText,
+      translation: Value(adriResponse.spanishTranslation),
+      taggedText: Value(adriResponse.taggedText),
+      providerUsed: Value(adriResponse.providerUsed),
+      language: _currentLanguage,
+    )));
+
+    await _ttsService.precache(adriResponse.cleanText);
+    await Future.delayed(const Duration(milliseconds: 200));
+
+    _speechState.setState_(AdriState.speaking);
+    await _playTaggedResponse(adriResponse);
+    _speechState.setState_(AdriState.idle);
+
+    setState(() => _isProcessing = false);
+  }
+
+  /// Repite el audio (y la animación del avatar) de un mensaje de Adri
+  /// ya mostrado en pantalla, sin volver a llamar al LLM.
+  Future<void> _replayMessage(Map<String, dynamic> msg) async {
+    if (_isProcessing) return;
+    final tagged = (msg['tagged'] as String?) ?? (msg['text'] as String);
+    final clean = msg['text'] as String;
+    setState(() => _isProcessing = true);
+    _speechState.setState_(AdriState.speaking);
+    await _playTaggedResponse(
+      AdriResponse(taggedText: tagged, cleanText: clean, spanishTranslation: ''),
+    );
+    _speechState.setState_(AdriState.idle);
+    setState(() => _isProcessing = false);
+  }
+
+  /// Reproduce el audio (TTS) y anima el avatar en paralelo: el
+  /// avatar va cambiando de expresión por fragmento de texto (misma
+  /// estimación de duración por cantidad de caracteres que usa el
+  /// motor de diálogo), mientras el TTS dice el texto completo en
+  /// una sola locución (para que no suene cortado).
+  Future<void> _playTaggedResponse(AdriResponse response) async {
+    final cues = DialogueScriptParser.parse(response.taggedText);
+    const charsPerSecond = 14.0;
+
+    final ttsFuture = _ttsService.speakResponse(response.cleanText);
+
+    for (final cue in cues) {
+      if (!mounted) break;
+      setState(() => _currentAvatarExpression = cue.expression);
+      final ms = (cue.text.length / charsPerSecond * 1000)
+          .clamp(180, 4000)
+          .toInt();
+      await Future.delayed(Duration(milliseconds: ms));
+    }
+
+    await ttsFuture;
+    if (mounted) setState(() => _currentAvatarExpression = null);
+  }
+
+  Future<void> _startListening() async {
+    _speechState.setState_(AdriState.listening);
+    await _speechService.listen(
+      onLanguageDetected: (locale) {
+        Logger.log('Detected locale: $locale');
+      },
+      onResult: (text) {
+        _controller.text = text;
+        _sendMessage();
+      },
+    );
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  void _showLanguageSelector() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A2E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'Select Language',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            _LanguageOption(
+              flag: '🇬🇧',
+              label: 'English',
+              code: 'en',
+              isSelected: _currentLanguage == 'en',
+              onTap: () => _changeLanguage('en'),
+            ),
+            _LanguageOption(
+              flag: '🇹🇿',
+              label: 'Swahili',
+              code: 'sw',
+              isSelected: _currentLanguage == 'sw',
+              onTap: () => _changeLanguage('sw'),
+            ),
+            _LanguageOption(
+              flag: '🇨🇳',
+              label: 'Mandarin',
+              code: 'zh',
+              isSelected: _currentLanguage == 'zh',
+              onTap: () => _changeLanguage('zh'),
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _changeLanguage(String lang) {
+    setState(() => _currentLanguage = lang);
+    _ttsService.setLanguage(lang);
+    Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final speechState = context.watch<AdriSpeechState>();
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Adry Speed Speech'),
+        backgroundColor: const Color(0xFF0F0F23),
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.camera_alt_outlined),
+            onPressed: () {},
+          ),
+          IconButton(
+            icon: const Icon(Icons.visibility_outlined),
+            onPressed: () {},
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            child: AdriAvatarWidget(
+              key: UniqueKey(),
+              isSpeaking: speechState.state == AdriState.speaking,
+              amplitude: speechState.amplitude,
+              language: _currentLanguage,
+              onLanguageTap: _showLanguageSelector,
+              expressionOverride: _currentAvatarExpression,
+            ),
+          ),
+          Container(
+            height: 1,
+            color: const Color(0xFF7C3AED).withOpacity(0.3),
+          ),
+          Expanded(
+            child: ListView.builder(
+              controller: _scrollController,
+              padding: const EdgeInsets.all(16),
+              itemCount: _messages.length + (_isWaitingForResponse ? 1 : 0),
+              itemBuilder: (context, index) {
+                if (index == _messages.length) {
+                  return const _TypingIndicator();
+                }
+                final msg = _messages[index];
+                final isUser = msg['role'] == 'user';
+                return _ChatBubble(
+                  text: msg['text'],
+                  isUser: isUser,
+                  translation: msg['translation'],
+                  providerUsed: kShowProviderDebug ? msg['provider'] : null,
+                  onReplay: isUser ? null : () => _replayMessage(msg),
+                );
+              },
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1A1A2E),
+              border: Border(
+                top: BorderSide(color: Colors.white.withOpacity(0.1)),
+              ),
+            ),
+            child: SafeArea(
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.mic, color: Colors.white70),
+                    onPressed: _isProcessing ? null : _startListening,
+                  ),
+                  Expanded(
+                    child: TextField(
+                      key: UniqueKey(),
+                      controller: _controller,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: 'Type or speak...',
+                        hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
+                        filled: true,
+                        fillColor: Colors.white.withOpacity(0.05),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(24),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                      ),
+                      onSubmitted: (_) => _sendMessage(),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: _isProcessing ? null : _sendMessage,
+                    child: Container(
+                      width: 48,
+                      height: 48,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFEC4899),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.send,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChatBubble extends StatelessWidget {
+  final String text;
+  final bool isUser;
+  final String? translation;
+  final String? providerUsed;
+  final VoidCallback? onReplay;
+
+  const _ChatBubble({
+    required this.text,
+    required this.isUser,
+    this.translation,
+    this.providerUsed,
+    this.onReplay,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasTranslation =
+        !isUser && translation != null && translation!.trim().isNotEmpty;
+    return Align(
+      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: isUser
+              ? const Color(0xFF1E3A5F)
+              : const Color(0xFF7C3AED),
+          borderRadius: BorderRadius.only(
+            topLeft: const Radius.circular(16),
+            topRight: const Radius.circular(16),
+            bottomLeft: Radius.circular(isUser ? 16 : 4),
+            bottomRight: Radius.circular(isUser ? 4 : 16),
+          ),
+        ),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.75,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    text,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+                if (onReplay != null)
+                  InkWell(
+                    onTap: onReplay,
+                    borderRadius: BorderRadius.circular(16),
+                    child: const Padding(
+                      padding: EdgeInsets.only(left: 6),
+                      child: Icon(Icons.volume_up_rounded,
+                          size: 18, color: Colors.white70),
+                    ),
+                  ),
+              ],
+            ),
+            if (hasTranslation) ...[
+              const SizedBox(height: 6),
+              Container(height: 1, color: Colors.white.withOpacity(0.2)),
+              const SizedBox(height: 6),
+              Text(
+                translation!,
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.75),
+                  fontSize: 13,
+                  fontStyle: FontStyle.italic,
+                  height: 1.3,
+                ),
+              ),
+            ],
+            if (providerUsed != null && providerUsed!.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                'vía $providerUsed',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.35),
+                  fontSize: 10,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Burbuja "escribiendo..." con 3 puntos animados, mientras se espera
+/// la respuesta del backend.
+class _TypingIndicator extends StatefulWidget {
+  const _TypingIndicator();
+
+  @override
+  State<_TypingIndicator> createState() => _TypingIndicatorState();
+}
+
+class _TypingIndicatorState extends State<_TypingIndicator>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: const Color(0xFF7C3AED),
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(16),
+            topRight: Radius.circular(16),
+            bottomRight: Radius.circular(16),
+            bottomLeft: Radius.circular(4),
+          ),
+        ),
+        child: AnimatedBuilder(
+          animation: _controller,
+          builder: (context, _) {
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: List.generate(3, (i) {
+                final t = (_controller.value - i * 0.2) % 1.0;
+                final opacity = (t < 0.5) ? (0.3 + t) : (1.3 - t);
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  child: Opacity(
+                    opacity: opacity.clamp(0.3, 1.0),
+                    child: const CircleAvatar(
+                      radius: 3.5,
+                      backgroundColor: Colors.white,
+                    ),
+                  ),
+                );
+              }),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _LanguageOption extends StatelessWidget {
+  final String flag;
+  final String label;
+  final String code;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _LanguageOption({
+    required this.flag,
+    required this.label,
+    required this.code,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Text(flag, style: const TextStyle(fontSize: 24)),
+      title: Text(
+        label,
+        style: const TextStyle(color: Colors.white, fontSize: 16),
+      ),
+      trailing: isSelected
+          ? const Icon(Icons.check_circle, color: Color(0xFF7C3AED))
+          : const Icon(Icons.circle_outlined, color: Colors.white30),
+      onTap: onTap,
+    );
+  }
+}

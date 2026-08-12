@@ -1,0 +1,4 @@
+class ApiConfig {
+  static const String backendBaseUrl = 'https://adri-speed-speech-backend.onrender.com';
+  static const int requestTimeoutSeconds = 10;
+}

@@ -1,0 +1,1256 @@
+import 'dart:async';
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:audioplayers/audioplayers.dart';
+import 'package:http/http.dart' as http;
+import '../../../../core/services/ai_service.dart';
+import '../../../../core/services/hybrid_tts_service.dart';
+import '../../../../core/services/speech_service.dart';
+import '../../../../core/services/avatar/adri_avatar_widget.dart';
+import '../../../../core/services/avatar/dialogue_script_parser.dart';
+import '../../../../main.dart';
+import '../../../../core/utils/language_detector.dart';
+import '../../../../core/utils/logger.dart';
+import '../../../../core/config/api_config.dart';
+import 'image_translation_screen.dart';
+
+class ChatScreen extends StatefulWidget {
+  const ChatScreen({super.key});
+
+  @override
+  State<ChatScreen> createState() => _ChatScreenState();
+}
+
+class _ChatScreenState extends State<ChatScreen> {
+  final TextEditingController _controller = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  final AudioPlayer _audioPlayer = AudioPlayer();
+
+  final Map<String, List<Map<String, dynamic>>> _messagesByLanguage = {};
+  List<Map<String, dynamic>> get _messages =>
+      _messagesByLanguage.putIfAbsent(_currentLanguage, () => []);
+
+  late AIService _aiService;
+  late HybridTtsService _ttsService;
+  late SpeechService _speechService;
+  late AdriSpeechState _speechState;
+
+  String _currentLanguage = 'en';
+  String _detectedUserLanguage = 'es';
+  bool _isProcessing = false;
+  bool _isWaitingForResponse = false;
+  AvatarExpression? _currentAvatarExpression;
+  Timer? _waitingTimer;
+  Timer? _autoSendTimer;
+  String _partialText = '';
+  int _ttsRate = -10;
+  bool _showTranslationOnly = false;
+  String _searchQuery = '';
+
+  // ============================================================
+  // 41 IDIOMAS (completo)
+  // ============================================================
+  static const Map<String, List<Map<String, String>>> _languageGroups = {
+    '🌍 Europa': [
+      {'code': 'en', 'flag': '🇬🇧', 'label': 'English'},
+      {'code': 'es', 'flag': '🇪🇸', 'label': 'Español'},
+      {'code': 'fr', 'flag': '🇫🇷', 'label': 'Français'},
+      {'code': 'de', 'flag': '🇩🇪', 'label': 'Deutsch'},
+      {'code': 'it', 'flag': '🇮🇹', 'label': 'Italiano'},
+      {'code': 'pt', 'flag': '🇵🇹', 'label': 'Português'},
+      {'code': 'ru', 'flag': '🇷🇺', 'label': 'Русский'},
+      {'code': 'pl', 'flag': '🇵🇱', 'label': 'Polski'},
+      {'code': 'uk', 'flag': '🇺🇦', 'label': 'Українська'},
+      {'code': 'ro', 'flag': '🇷🇴', 'label': 'Română'},
+      {'code': 'el', 'flag': '🇬🇷', 'label': 'Ελληνικά'},
+      {'code': 'nl', 'flag': '🇳🇱', 'label': 'Nederlands'},
+      {'code': 'tr', 'flag': '🇹🇷', 'label': 'Türkçe'},
+      {'code': 'he', 'flag': '🇮🇱', 'label': 'עברית'},
+      {'code': 'fa', 'flag': '🇮🇷', 'label': 'فارسی'},
+      {'code': 'sv', 'flag': '🇸🇪', 'label': 'Svenska'},
+      {'code': 'da', 'flag': '🇩🇰', 'label': 'Dansk'},
+      {'code': 'nb', 'flag': '🇳🇴', 'label': 'Norsk'},
+      {'code': 'fi', 'flag': '🇫🇮', 'label': 'Suomi'},
+      {'code': 'cs', 'flag': '🇨🇿', 'label': 'Čeština'},
+      {'code': 'hu', 'flag': '🇭🇺', 'label': 'Magyar'},
+    ],
+    '🌏 Asia': [
+      {'code': 'zh', 'flag': '🇨🇳', 'label': '中文'},
+      {'code': 'hi', 'flag': '🇮🇳', 'label': 'हिन्दी'},
+      {'code': 'ja', 'flag': '🇯🇵', 'label': '日本語'},
+      {'code': 'ko', 'flag': '🇰🇷', 'label': '한국어'},
+      {'code': 'th', 'flag': '🇹🇭', 'label': 'ไทย'},
+      {'code': 'vi', 'flag': '🇻🇳', 'label': 'Tiếng Việt'},
+      {'code': 'id', 'flag': '🇮🇩', 'label': 'Bahasa Indonesia'},
+      {'code': 'ms', 'flag': '🇲🇾', 'label': 'Bahasa Melayu'},
+      {'code': 'bn', 'flag': '🇧🇩', 'label': 'বাংলা'},
+      {'code': 'pa', 'flag': '🇮🇳', 'label': 'ਪੰਜਾਬੀ'},
+      {'code': 'ta', 'flag': '🇮🇳', 'label': 'தமிழ்'},
+      {'code': 'my', 'flag': '🇲🇲', 'label': 'မြန်မာစာ'},
+      {'code': 'tl', 'flag': '🇵🇭', 'label': 'Tagalog'},
+      {'code': 'ne', 'flag': '🇳🇵', 'label': 'नेपाली'},
+      {'code': 'si', 'flag': '🇱🇰', 'label': 'සිංහල'},
+      {'code': 'uz', 'flag': '🇺🇿', 'label': 'Oʻzbekcha'},
+    ],
+    '🌍 África y Oriente Medio': [
+      {'code': 'ar', 'flag': '🇸🇦', 'label': 'العربية'},
+      {'code': 'sw', 'flag': '🇹🇿', 'label': 'Kiswahili'},
+      {'code': 'suk', 'flag': '🇹🇿', 'label': 'Kisukuma'},
+      {'code': 'gu', 'flag': '🇮🇳', 'label': 'ગુજરાતી'},
+      {'code': 'am', 'flag': '🇪🇹', 'label': 'አማርኛ'},
+    ],
+  };
+
+  List<Map<String, String>> get _allLanguages {
+    final all = <Map<String, String>>[];
+    for (final group in _languageGroups.values) {
+      all.addAll(group);
+    }
+    return all;
+  }
+
+  List<Map<String, String>> get _filteredLanguages {
+    if (_searchQuery.isEmpty) return _allLanguages;
+    return _allLanguages
+        .where((l) => l['label']!.toLowerCase().contains(_searchQuery.toLowerCase()))
+        .toList();
+  }
+
+  // ============================================================
+  // SALUDOS, FRASES DE ESPERA Y VOCES (41 idiomas)
+  // ============================================================
+  static const Map<String, String> _welcomeMessages = {
+    'en': "[SONRISA_ABIERTA] Hello! I'm Adri, your English teacher. Ready to practice?",
+    'es': "[SONRISA_ABIERTA] ¡Hola! Soy Adri. ¿Charlamos un rato?",
+    'sw': "[SONRISA_ABIERTA] Habari! Mimi ni Adri, mwalimu wako wa Kiswahili. Tuanze?",
+    'zh': "[SONRISA_ABIERTA] 你好！我是Adri，你的中文老师。我们开始练习吧？",
+    'hi': "[SONRISA_ABIERTA] नमस्ते! मैं Adri हूं, आपकी हिंदी शिक्षिका। क्या हम शुरू करें?",
+    'fr': "[SONRISA_ABIERTA] Bonjour ! Je suis Adri, ta prof de français. On commence ?",
+    'ru': "[SONRISA_ABIERTA] Привет! Я Адри, твоя учительница русского. Начнём?",
+    'pt': "[SONRISA_ABIERTA] Olá! Eu sou a Adri, sua professora de português. Vamos começar?",
+    'de': "[SONRISA_ABIERTA] Hallo! Ich bin Adri, deine Deutschlehrerin. Sollen wir anfangen?",
+    'ar': "[SONRISA_ABIERTA] مرحبا! أنا Adri، معلمتك للعربية. هل نبدأ؟",
+    'tr': "[SONRISA_ABIERTA] Merhaba! Ben Adri, Türkçe öğretmenin. Başlayalım mı?",
+    'suk': "[SONRISA_ABIERTA] Shikamoo! Nene Adri, mundu wa kufundisha Kisukuma. Tuanze?",
+    'gu': "[SONRISA_ABIERTA] નમસ્તે! હું એડ્રી, તમારી ગુજરાતી શિક્ષિકા. શરૂ કરીએ?",
+    'ja': "[SONRISA_ABIERTA] こんにちは！私はAdri、あなたの日本語の先生です。始めましょうか？",
+    'ko': "[SONRISA_ABIERTA] 안녕하세요! 저는 Adri, 당신의 한국어 선생님입니다. 시작할까요?",
+    'th': "[SONRISA_ABIERTA] สวัสดี! ฉันคือ Adri ครูสอนภาษาไทยของคุณ เริ่มกันเลยไหม?",
+    'vi': "[SONRISA_ABIERTA] Xin chào! Tôi là Adri, giáo viên tiếng Việt của bạn. Bắt đầu nhé?",
+    'id': "[SONRISA_ABIERTA] Halo! Saya Adri, guru bahasa Indonesia Anda. Mari mulai?",
+    'bn': "[SONRISA_ABIERTA] হ্যালো! আমি Adri, আপনার বাংলা শিক্ষক। শুরু করা যাক?",
+    'pa': "[SONRISA_ABIERTA] ਸਤ ਸ੍ਰੀ ਅਕਾਲ! ਮੈਂ Adri, ਤੁਹਾਡੀ ਪੰਜਾਬੀ ਅਧਿਆਪਕਾ। ਸ਼ੁਰੂ ਕਰੀਏ?",
+    'ta': "[SONRISA_ABIERTA] வணக்கம்! நான் Adri, உங்கள் தமிழ் ஆசிரியை. ஆரம்பிக்கலாம்?",
+    'my': "[SONRISA_ABIERTA] မင်္ဂလာပါ! ကျွန်မက Adri, သင့်ရဲ့မြန်မာစာဆရာမ။ စလိုက်ရအောင်?",
+    'tl': "[SONRISA_ABIERTA] Kamusta! Ako si Adri, ang iyong guro sa Tagalog. Magsimula na tayo?",
+    'ro': "[SONRISA_ABIERTA] Bună! Sunt Adri, profesoara ta de română. Începem?",
+    'el': "[SONRISA_ABIERTA] Γεια σας! Είμαι η Adri, η δασκάλα σας στα ελληνικά. Ξεκινάμε;",
+    'nl': "[SONRISA_ABIERTA] Hallo! Ik ben Adri, jouw Nederlandse lerares. Zullen we beginnen?",
+    'pl': "[SONRISA_ABIERTA] Cześć! Jestem Adri, twoja nauczycielka polskiego. Zaczynamy?",
+    'uk': "[SONRISA_ABIERTA] Привіт! Я Адрі, твоя вчителька української. Почнемо?",
+    'it': "[SONRISA_ABIERTA] Ciao! Sono Adri, la tua insegnante di italiano. Iniziamo?",
+    'fa': "[SONRISA_ABIERTA] سلام! من آدری هستم، معلم فارسی شما. شروع کنیم؟",
+    'he': "[SONRISA_ABIERTA] שלום! אני אדרי, המורה שלך לעברית. נתחיל?",
+    'ms': "[SONRISA_ABIERTA] Hai! Saya Adri, guru bahasa Melayu anda. Mari mulakan?",
+    'am': "[SONRISA_ABIERTA] ሰላም! እኔ አድሪ ነኝ የአማርኛ አስተማሪዎት። እንጀምር?",
+    'si': "[SONRISA_ABIERTA] ආයුබෝවන්! මම ඇඩ්රි, ඔබේ සිංහල ගුරුවරිය. පටන් ගනිමු?",
+    'ne': "[SONRISA_ABIERTA] नमस्ते! म एड्रि, तपाईंको नेपाली शिक्षिका। सुरु गरौं?",
+    'uz': "[SONRISA_ABIERTA] Salom! Men Adri, sizning o‘zbek tili o‘qituvchingiz. Boshlaymiz?",
+    'sv': "[SONRISA_ABIERTA] Hej! Jag är Adri, din svensklärare. Ska vi börja?",
+    'da': "[SONRISA_ABIERTA] Hej! Jeg er Adri, din dansklærer. Skal vi begynde?",
+    'nb': "[SONRISA_ABIERTA] Hei! Jeg er Adri, norsklæreren din. Skal vi begynne?",
+    'fi': "[SONRISA_ABIERTA] Hei! Olen Adri, suomenopettajasi. Aloitetaanko?",
+    'cs': "[SONRISA_ABIERTA] Ahoj! Jsem Adri, tvá učitelka češtiny. Začneme?",
+    'hu': "[SONRISA_ABIERTA] Szia! Adri vagyok, a magyar tanárod. Kezdjük?",
+  };
+
+  static const Map<String, String> _welcomeTranslations = {
+    'en': '¡Hola! Soy Adri, tu profesora de inglés. ¿Listo para practicar?',
+    'es': '',
+    'sw': '¡Hola! Soy Adri, tu profesora de suajili. ¿Empezamos?',
+    'zh': '¡Hola! Soy Adri, tu profesora de mandarín. ¿Empezamos a practicar?',
+    'hi': '¡Hola! Soy Adri, tu profesora de hindi. ¿Empezamos?',
+    'fr': '¡Hola! Soy Adri, tu profesora de francés. ¿Empezamos?',
+    'ru': '¡Hola! Soy Adri, tu profesora de ruso. ¿Empezamos?',
+    'pt': '¡Hola! Soy Adri, tu profesora de portugués. ¿Empezamos?',
+    'de': '¡Hola! Soy Adri, tu profesora de alemán. ¿Empezamos?',
+    'ar': '¡Hola! Soy Adri, tu profesora de árabe. ¿Empezamos?',
+    'tr': '¡Hola! Soy Adri, tu profesora de turco. ¿Empezamos?',
+    'suk': '¡Hola! Soy Adri, tu profesora de sukuma. ¿Empezamos?',
+    'gu': '¡Hola! Soy Adri, tu profesora de guyaratí. ¿Empezamos?',
+    'ja': '¡Hola! Soy Adri, tu profesora de japonés. ¿Empezamos?',
+    'ko': '¡Hola! Soy Adri, tu profesora de coreano. ¿Empezamos?',
+    'th': '¡Hola! Soy Adri, tu profesora de tailandés. ¿Empezamos?',
+    'vi': '¡Hola! Soy Adri, tu profesora de vietnamita. ¿Empezamos?',
+    'id': '¡Hola! Soy Adri, tu profesora de indonesio. ¿Empezamos?',
+    'bn': '¡Hola! Soy Adri, tu profesora de bengalí. ¿Empezamos?',
+    'pa': '¡Hola! Soy Adri, tu profesora de punjabi. ¿Empezamos?',
+    'ta': '¡Hola! Soy Adri, tu profesora de tamil. ¿Empezamos?',
+    'my': '¡Hola! Soy Adri, tu profesora de birmano. ¿Empezamos?',
+    'tl': '¡Hola! Soy Adri, tu profesora de tagalo. ¿Empezamos?',
+    'ro': '¡Hola! Soy Adri, tu profesora de rumano. ¿Empezamos?',
+    'el': '¡Hola! Soy Adri, tu profesora de griego. ¿Empezamos?',
+    'nl': '¡Hola! Soy Adri, tu profesora de neerlandés. ¿Empezamos?',
+    'pl': '¡Hola! Soy Adri, tu profesora de polaco. ¿Empezamos?',
+    'uk': '¡Hola! Soy Adri, tu profesora de ucraniano. ¿Empezamos?',
+    'it': '¡Hola! Soy Adri, tu profesora de italiano. ¿Empezamos?',
+    'fa': '¡Hola! Soy Adri, tu profesora de persa. ¿Empezamos?',
+    'he': '¡Hola! Soy Adri, tu profesora de hebreo. ¿Empezamos?',
+    'ms': '¡Hola! Soy Adri, tu profesora de malayo. ¿Empezamos?',
+    'am': '¡Hola! Soy Adri, tu profesora de amárico. ¿Empezamos?',
+    'si': '¡Hola! Soy Adri, tu profesora de cingalés. ¿Empezamos?',
+    'ne': '¡Hola! Soy Adri, tu profesora de nepalí. ¿Empezamos?',
+    'uz': '¡Hola! Soy Adri, tu profesora de uzbeko. ¿Empezamos?',
+    'sv': '¡Hola! Soy Adri, tu profesora de sueco. ¿Empezamos?',
+    'da': '¡Hola! Soy Adri, tu profesora de danés. ¿Empezamos?',
+    'nb': '¡Hola! Soy Adri, tu profesora de noruego. ¿Empezamos?',
+    'fi': '¡Hola! Soy Adri, tu profesora de finlandés. ¿Empezamos?',
+    'cs': '¡Hola! Soy Adri, tu profesora de checo. ¿Empezamos?',
+    'hu': '¡Hola! Soy Adri, tu profesora de húngaro. ¿Empezamos?',
+  };
+
+  static const Map<String, String> _waitingPhrases = {
+    'en': '[DUDA_PENSATIVA] Just a moment...',
+    'es': '[DUDA_PENSATIVA] Un momento...',
+    // ... resto
+  };
+
+  String _voiceIdForLanguage(String lang, {bool male = false}) {
+    const map = {
+      'en': 'en-US-JennyNeural',
+      'en_male': 'en-US-BrandonNeural',
+      'es': 'es-ES-ElviraNeural',
+      'es_male': 'es-ES-AlvaroNeural',
+      'sw': 'sw-KE-ZuriNeural',
+      'zh': 'zh-CN-XiaoxiaoNeural',
+      'hi': 'hi-IN-SwaraNeural',
+      'fr': 'fr-FR-DeniseNeural',
+      'ru': 'ru-RU-SvetlanaNeural',
+      'pt': 'pt-PT-RaquelNeural',
+      'de': 'de-DE-KatjaNeural',
+      'ar': 'ar-SA-ZariyahNeural',
+      'tr': 'tr-TR-EmelNeural',
+      'suk': 'sw-KE-ZuriNeural',
+      'gu': 'gu-IN-DhwaniNeural',
+      'ja': 'ja-JP-NanamiNeural',
+      'ko': 'ko-KR-SunHiNeural',
+      'th': 'th-TH-PremwadeeNeural',
+      'vi': 'vi-VN-HoaiMyNeural',
+      'id': 'id-ID-GadisNeural',
+      'bn': 'bn-IN-TanishaaNeural',
+      'pa': 'pa-IN-GurpreetNeural',
+      'ta': 'ta-IN-PallaviNeural',
+      'my': 'my-MM-NilarNeural',
+      'tl': 'tl-PH-AngeloNeural',
+      'ro': 'ro-RO-AlinaNeural',
+      'el': 'el-GR-AthinaNeural',
+      'nl': 'nl-NL-ColetteNeural',
+      'pl': 'pl-PL-AgnieszkaNeural',
+      'uk': 'uk-UA-PolinaNeural',
+      'it': 'it-IT-ElsaNeural',
+      'fa': 'fa-IR-DilaraNeural',
+      'he': 'he-IL-HilaNeural',
+      'ms': 'ms-MY-YasminNeural',
+      'am': 'am-ET-MekdesNeural',
+      'si': 'si-LK-ThiliniNeural',
+      'ne': 'ne-NP-HemkalaNeural',
+      'uz': 'uz-UZ-MadinaNeural',
+      'sv': 'sv-SE-SofieNeural',
+      'da': 'da-DK-ChristelNeural',
+      'nb': 'nb-NO-IselinNeural',
+      'fi': 'fi-FI-NooraNeural',
+      'cs': 'cs-CZ-VlastaNeural',
+      'hu': 'hu-HU-NoemiNeural',
+    };
+    final key = male ? '${lang}_male' : lang;
+    return map[key] ?? map[lang] ?? 'en-US-JennyNeural';
+  }
+
+  // ============================================================
+  // INICIO Y CICLO DE VIDA
+  // ============================================================
+  @override
+  void initState() {
+    super.initState();
+    _aiService = context.read<AIService>();
+    _ttsService = context.read<HybridTtsService>();
+    _speechService = context.read<SpeechService>();
+    _speechState = context.read<AdriSpeechState>();
+
+    _ttsService.initialize();
+    _ttsService.setLanguage(_currentLanguage);
+    _loadAllHistories().then((_) => _maybeShowWelcomeForCurrentLanguage());
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _scrollController.dispose();
+    _audioPlayer.dispose();
+    _waitingTimer?.cancel();
+    _autoSendTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadAllHistories() async {
+    final prefs = await SharedPreferences.getInstance();
+    for (final lang in _allLanguages) {
+      final code = lang['code']!;
+      final raw = prefs.getString('chat_history_$code');
+      if (raw == null || raw.isEmpty) continue;
+      try {
+        final decoded = (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
+        _messagesByLanguage[code] = decoded;
+      } catch (_) {}
+    }
+    if (mounted) setState(() {});
+    _scrollToBottom();
+  }
+
+  Future<void> _persistCurrentHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final list = _messages;
+    final toSave = list.length > 200 ? list.sublist(list.length - 200) : list;
+    await prefs.setString('chat_history_$_currentLanguage', jsonEncode(toSave));
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  Future<void> _maybeShowWelcomeForCurrentLanguage() async {
+    if (_messages.isNotEmpty) return;
+    final tagged = _welcomeMessages[_currentLanguage];
+    if (tagged == null) return;
+    final clean = DialogueScriptParser.stripTags(tagged);
+    final translation = _welcomeTranslations[_currentLanguage] ?? '';
+
+    setState(() {
+      _messages.add({
+        'role': 'adri',
+        'text': clean,
+        'translation': translation,
+        'tagged': tagged,
+        'provider': null,
+        'audio_base64': null,
+        'visemes': null,
+      });
+    });
+    _scrollToBottom();
+    unawaited(_persistCurrentHistory());
+
+    _speechState.setState_(AdriState.speaking);
+    try {
+      await Future.delayed(const Duration(milliseconds: 300));
+      await _ttsService.precache(clean);
+      await Future.delayed(const Duration(milliseconds: 200));
+      await _ttsService.speakResponse(clean);
+      if (translation.isNotEmpty && _currentLanguage != 'es') {
+        // Traducción inmediata después del saludo
+        await Future.delayed(const Duration(milliseconds: 200));
+        await _ttsService.speakTranslation(translation);
+      }
+    } catch (e) {
+      print('❌ Error en saludo: $e');
+    }
+    _speechState.setState_(AdriState.idle);
+  }
+
+  // ============================================================
+  // SELECTOR DE IDIOMAS (EN APPBAR)
+  // ============================================================
+  void _showLanguageSelector() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF1A1A2E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setStateModal) {
+            return SafeArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text(
+                      'Elige un idioma',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: TextField(
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: 'Buscar idioma...',
+                        hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
+                        prefixIcon: const Icon(Icons.search, color: Colors.white54),
+                        filled: true,
+                        fillColor: const Color(0xFF2A2A4A),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                      onChanged: (value) {
+                        setStateModal(() {
+                          _searchQuery = value;
+                        });
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  if (_searchQuery.isNotEmpty)
+                    Expanded(
+                      child: ListView.builder(
+                        padding: const EdgeInsets.all(8),
+                        itemCount: _filteredLanguages.length,
+                        itemBuilder: (context, index) {
+                          final lang = _filteredLanguages[index];
+                          final isSelected = _currentLanguage == lang['code'];
+                          return ListTile(
+                            leading: Text(lang['flag']!, style: const TextStyle(fontSize: 22)),
+                            title: Text(
+                              lang['label']!,
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                              ),
+                            ),
+                            trailing: isSelected
+                                ? const Icon(Icons.check, color: Color(0xFF7C3AED))
+                                : null,
+                            onTap: () {
+                              _changeLanguage(lang['code']!);
+                              Navigator.of(context).pop();
+                            },
+                          );
+                        },
+                      ),
+                    )
+                  else
+                    DefaultTabController(
+                      length: _languageGroups.length,
+                      child: Column(
+                        children: [
+                          TabBar(
+                            isScrollable: true,
+                            labelColor: Colors.white,
+                            unselectedLabelColor: Colors.white60,
+                            indicatorColor: const Color(0xFF7C3AED),
+                            tabs: _languageGroups.keys.map((group) => Tab(text: group)).toList(),
+                          ),
+                          SizedBox(
+                            height: MediaQuery.of(context).size.height * 0.5,
+                            child: TabBarView(
+                              children: _languageGroups.values.map((languages) {
+                                return ListView.builder(
+                                  padding: const EdgeInsets.all(8),
+                                  itemCount: languages.length,
+                                  itemBuilder: (context, index) {
+                                    final lang = languages[index];
+                                    final isSelected = _currentLanguage == lang['code'];
+                                    return ListTile(
+                                      leading: Text(lang['flag']!, style: const TextStyle(fontSize: 22)),
+                                      title: Text(
+                                        lang['label']!,
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                        ),
+                                      ),
+                                      trailing: isSelected
+                                          ? const Icon(Icons.check, color: Color(0xFF7C3AED))
+                                          : null,
+                                      onTap: () {
+                                        _changeLanguage(lang['code']!);
+                                        Navigator.of(context).pop();
+                                      },
+                                    );
+                                  },
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: 8),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // ============================================================
+  // CAMBIO DE IDIOMA (con saludo inmediato y sin pantalla negra)
+  // ============================================================
+  void _changeLanguage(String code) {
+    if (!_messagesByLanguage.containsKey(code)) {
+      _messagesByLanguage[code] = [];
+    }
+
+    if (_messagesByLanguage[code]!.isNotEmpty) {
+      setState(() {
+        _currentLanguage = code;
+      });
+      _ttsService.setLanguage(code);
+      Navigator.of(context).pop();
+      _scrollToBottom();
+      return;
+    }
+
+    final tagged = _welcomeMessages[code];
+    if (tagged != null) {
+      final clean = DialogueScriptParser.stripTags(tagged);
+      final translation = _welcomeTranslations[code] ?? '';
+
+      setState(() {
+        _currentLanguage = code;
+        _messagesByLanguage[code] = [
+          {
+            'role': 'adri',
+            'text': clean,
+            'translation': translation,
+            'tagged': tagged,
+            'provider': null,
+            'audio_base64': null,
+            'visemes': null,
+          }
+        ];
+      });
+      _scrollToBottom();
+      unawaited(_persistCurrentHistory());
+
+      // Hablar saludo
+      _speechState.setState_(AdriState.speaking);
+      Future.delayed(const Duration(milliseconds: 200), () {
+        _ttsService.precache(clean);
+        Future.delayed(const Duration(milliseconds: 150), () {
+          _ttsService.speakResponse(clean);
+          if (translation.isNotEmpty && code != 'es') {
+            // Traducción inmediata después del saludo
+            Future.delayed(const Duration(milliseconds: 200), () {
+              _ttsService.speakTranslation(translation);
+            });
+          }
+        });
+        Future.delayed(const Duration(seconds: 3), () {
+          _speechState.setState_(AdriState.idle);
+        });
+      });
+    } else {
+      setState(() {
+        _currentLanguage = code;
+        _messagesByLanguage[code] = [];
+      });
+    }
+
+    _ttsService.setLanguage(code);
+    Navigator.of(context).pop();
+    _scrollToBottom();
+  }
+
+  // ============================================================
+  // ENVÍO DE MENSAJE (CORREGIDO: TRADUCCIÓN ESCRITA Y POR VOZ)
+  // ============================================================
+  Future<void> _sendMessage([String? spokenText]) async {
+    final text = (spokenText ?? _controller.text).trim();
+    if (text.isEmpty || _isProcessing) return;
+
+    _controller.clear();
+    _partialText = '';
+
+    final detectedLang = LanguageDetector.detect(text);
+    if (detectedLang != null) {
+      _detectedUserLanguage = detectedLang;
+      print('🔍 Idioma del usuario detectado: $_detectedUserLanguage');
+    }
+
+    setState(() {
+      _messages.add({'role': 'user', 'text': text});
+      _isProcessing = true;
+      _isWaitingForResponse = true;
+    });
+    _scrollToBottom();
+    unawaited(_persistCurrentHistory());
+
+    _speechState.setState_(AdriState.waiting);
+
+    _waitingTimer = Timer(const Duration(seconds: 4), () {
+      final phrase = _waitingPhrases[_currentLanguage];
+      if (phrase == null || !mounted) return;
+      setState(() => _currentAvatarExpression = AvatarExpression.dudaPensativa);
+      _ttsService.speakResponse(DialogueScriptParser.stripTags(phrase));
+    });
+
+    final voiceId = _voiceIdForLanguage(_currentLanguage);
+    final adriResponse = await _aiService.sendMessage(
+      text,
+      targetLang: _currentLanguage,
+      userLang: _detectedUserLanguage,
+      voiceId: voiceId,
+      rate: _ttsRate,
+    );
+
+    _waitingTimer?.cancel();
+
+    // ============================================================
+    // GUARDAR RESPUESTA CON TRADUCCIÓN
+    // ============================================================
+    setState(() {
+      _isWaitingForResponse = false;
+      _messages.add({
+        'role': 'adri',
+        'text': adriResponse.cleanText,
+        'translation': adriResponse.userTranslation,
+        'tagged': adriResponse.taggedText,
+        'provider': adriResponse.providerUsed,
+        'audio_base64': adriResponse.audioBase64,
+        'visemes': adriResponse.visemes,
+      });
+    });
+    _scrollToBottom();
+    unawaited(_persistCurrentHistory());
+
+    // ============================================================
+    // REPRODUCIR AUDIO DEL AVATAR
+    // ============================================================
+    if (!_showTranslationOnly) {
+      if (adriResponse.audioBase64 != null && adriResponse.audioBase64!.isNotEmpty) {
+        _speechState.setState_(AdriState.speaking);
+        await _playAudioFromBase64(adriResponse.audioBase64!, adriResponse.visemes);
+        _speechState.setState_(AdriState.idle);
+      } else {
+        final cleanText = adriResponse.cleanText.trim();
+        if (cleanText.isNotEmpty) {
+          await _ttsService.precache(cleanText);
+          await Future.delayed(const Duration(milliseconds: 150));
+          _speechState.setState_(AdriState.speaking);
+          await _ttsService.speakResponse(cleanText);
+          _speechState.setState_(AdriState.idle);
+        }
+      }
+    }
+
+    // ============================================================
+    // REPRODUCIR TRADUCCIÓN (VOZ DEL USUARIO)
+    // ============================================================
+    final translation = adriResponse.userTranslation.trim();
+    if (translation.isNotEmpty && _detectedUserLanguage != _currentLanguage) {
+      print('🔊 Reproduciendo traducción: "$translation"');
+      await _playTranslationAudio(translation, _detectedUserLanguage);
+    } else if (translation.isNotEmpty) {
+      print('ℹ️ Traducción omitida (mismo idioma que el avatar)');
+    } else {
+      print('⚠️ No hay traducción disponible');
+    }
+
+    if (mounted) setState(() => _isProcessing = false);
+  }
+
+  // ============================================================
+  // REPRODUCCIÓN DE AUDIO DEL AVATAR (CON VISEMES)
+  // ============================================================
+  Future<void> _playAudioFromBase64(String base64, List? visemes) async {
+    try {
+      final bytes = base64Decode(base64);
+      if (bytes.isEmpty) return;
+      final source = BytesSource(bytes);
+      await _audioPlayer.play(source);
+      
+      if (visemes != null && visemes.isNotEmpty) {
+        for (final viseme in visemes) {
+          final mouth = viseme['mouth'] ?? 'closed';
+          AvatarExpression expr;
+          switch (mouth) {
+            case 'open': expr = AvatarExpression.bocaA; break;
+            case 'half': expr = AvatarExpression.bocaE; break;
+            case 'wide': expr = AvatarExpression.sonrisaAbierta; break;
+            case 'round': expr = AvatarExpression.bocaO; break;
+            case 'smile': expr = AvatarExpression.sonrisaCerrada; break;
+            default: expr = AvatarExpression.neutro;
+          }
+          setState(() => _currentAvatarExpression = expr);
+          await Future.delayed(Duration(milliseconds: 80));
+        }
+      } else {
+        setState(() {
+          _currentAvatarExpression = AvatarExpression.sonrisaAbierta;
+        });
+        await Future.delayed(const Duration(seconds: 2));
+        setState(() {
+          _currentAvatarExpression = null;
+        });
+      }
+      
+      await _audioPlayer.onPlayerComplete.first;
+      setState(() => _currentAvatarExpression = null);
+    } catch (e) {
+      print('❌ Error reproduciendo audio del avatar: $e');
+    }
+  }
+
+  // ============================================================
+  // REPRODUCCIÓN DE TRADUCCIÓN (CORREGIDO)
+  // ============================================================
+  Future<void> _playTranslationAudio(String translationText, String userLang) async {
+    if (translationText.trim().isEmpty) {
+      print('⚠️ Texto de traducción vacío');
+      return;
+    }
+
+    print('🔊 Reproduciendo traducción en $userLang: "$translationText"');
+    try {
+      // Usar la voz del idioma del usuario
+      final voiceId = _voiceIdForLanguage(userLang);
+      print('🔊 Voice ID para traducción: $voiceId');
+
+      final response = await http.post(
+        Uri.parse('${ApiConfig.backendBaseUrl}/tts'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'text': translationText,
+          'voice_id': voiceId,
+          'lang': userLang,
+          'rate': _ttsRate,
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      print('🔊 Respuesta TTS: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final audioBase64 = data['audio_base64'] as String?;
+        if (audioBase64 != null && audioBase64.isNotEmpty) {
+          final bytes = base64Decode(audioBase64);
+          if (bytes.isNotEmpty) {
+            final source = BytesSource(bytes);
+            await _audioPlayer.play(source);
+            await _audioPlayer.onPlayerComplete.first;
+            print('✅ Traducción reproducida correctamente');
+            return;
+          }
+        }
+      }
+      // Fallback a TTS local (flutter_tts)
+      print('⚠️ Usando fallback TTS local para traducción');
+      if (translationText.trim().isNotEmpty) {
+        await _ttsService.speakTranslation(translationText, lang: userLang);
+      }
+    } catch (e) {
+      print('❌ Error reproduciendo traducción: $e');
+      if (translationText.trim().isNotEmpty) {
+        await _ttsService.speakTranslation(translationText, lang: userLang);
+      }
+    }
+  }
+
+  // ============================================================
+  // REPETICIÓN
+  // ============================================================
+  Future<void> _replayAvatar(Map<String, dynamic> msg) async {
+    if (_isProcessing) return;
+    final audioBase64 = msg['audio_base64'] as String?;
+    if (audioBase64 != null && audioBase64.isNotEmpty) {
+      setState(() => _isProcessing = true);
+      _speechState.setState_(AdriState.speaking);
+      await _playAudioFromBase64(audioBase64, msg['visemes']);
+      _speechState.setState_(AdriState.idle);
+      if (mounted) setState(() => _isProcessing = false);
+    } else {
+      final clean = msg['text'] as String;
+      if (clean.trim().isNotEmpty) {
+        await _ttsService.speakResponse(clean);
+      }
+    }
+  }
+
+  Future<void> _replayTranslation(Map<String, dynamic> msg) async {
+    if (_isProcessing) return;
+    final translation = (msg['translation'] as String?) ?? '';
+    if (translation.trim().isEmpty) return;
+    setState(() => _isProcessing = true);
+    _speechState.setState_(AdriState.speaking);
+    await _ttsService.speakTranslation(translation);
+    _speechState.setState_(AdriState.idle);
+    if (mounted) setState(() => _isProcessing = false);
+  }
+
+  // ============================================================
+  // MICRÓFONO
+  // ============================================================
+  Future<void> _onMicPressed() async {
+    if (_speechState.state == AdriState.listening) {
+      await _speechService.stop();
+      _speechState.setState_(AdriState.idle);
+      return;
+    }
+
+    final initialized = await _speechService.initialize();
+    if (!initialized) {
+      _speechState.setState_(AdriState.idle);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('STT no disponible.')),
+      );
+      return;
+    }
+
+    final hasPermission = await _speechService.hasPermission();
+    if (!hasPermission) {
+      _speechState.setState_(AdriState.idle);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Activa el micrófono en Ajustes.')),
+      );
+      return;
+    }
+
+    _speechState.setState_(AdriState.listening);
+    _partialText = '';
+    _controller.clear();
+
+    final micLocale = await _speechService.systemLocaleOrSpanish();
+    print('🔊 Usando locale para STT: $micLocale');
+
+    final started = await _speechService.listen(
+      localeId: micLocale,
+      onLanguageDetected: (_) {},
+      onResult: (text) {
+        setState(() {
+          _partialText = text;
+          _controller.text = text;
+          _controller.selection = TextSelection.fromPosition(
+            TextPosition(offset: text.length),
+          );
+        });
+        _autoSendTimer?.cancel();
+        // Envío con 100ms de pausa
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (_partialText.trim().isNotEmpty) {
+            _speechState.setState_(AdriState.idle);
+            _sendMessage(_partialText);
+          }
+        });
+      },
+    );
+
+    if (!started) {
+      _speechState.setState_(AdriState.idle);
+      final detail = _speechService.lastError;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            detail != null
+                ? 'Micrófono: $detail'
+                : 'No se pudo activar el micrófono.',
+          ),
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    }
+  }
+
+  void _openCamera() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const ImageTranslationScreen()),
+    );
+  }
+
+  // ============================================================
+  // BUILD (UI)
+  // ============================================================
+  @override
+  Widget build(BuildContext context) {
+    final speechState = context.watch<AdriSpeechState>();
+    final currentLangMeta = _allLanguages.firstWhere(
+      (l) => l['code'] == _currentLanguage,
+      orElse: () => _allLanguages.first,
+    );
+
+    String avatarPath = 'assets/avatars/adri_${_currentLanguage}.png';
+    if (_currentLanguage == 'es') avatarPath = 'assets/avatars/adri_sp.png';
+    if (_currentLanguage == 'suk') avatarPath = 'assets/avatars/adri_suk.png';
+
+    return Scaffold(
+      backgroundColor: const Color(0xFF0F0F23),
+      appBar: AppBar(
+        title: const Text('Adri Speed Speech'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.language),
+            onPressed: _showLanguageSelector,
+          ),
+          IconButton(
+            icon: const Icon(Icons.book),
+            onPressed: () => Navigator.pushNamed(context, '/vocabulary'),
+          ),
+          IconButton(
+            icon: const Icon(Icons.analytics),
+            onPressed: () => Navigator.pushNamed(context, '/statistics'),
+          ),
+          PopupMenuButton<int>(
+            icon: const Icon(Icons.speed),
+            onSelected: (value) => setState(() => _ttsRate = value),
+            itemBuilder: (context) => [
+              const PopupMenuItem(value: -20, child: Text('🐢 Muy lento')),
+              const PopupMenuItem(value: -10, child: Text('🔄 Lento (actual)')),
+              const PopupMenuItem(value: 0, child: Text('⚡ Normal')),
+              const PopupMenuItem(value: 10, child: Text('🚀 Rápido')),
+              const PopupMenuItem(value: 20, child: Text('🔥 Muy rápido')),
+            ],
+          ),
+          IconButton(
+            icon: Icon(
+              _showTranslationOnly ? Icons.translate : Icons.translate_outlined,
+              color: _showTranslationOnly ? const Color(0xFFEC4899) : Colors.white,
+            ),
+            onPressed: () => setState(() => _showTranslationOnly = !_showTranslationOnly),
+          ),
+          IconButton(
+            icon: const Icon(Icons.camera_alt_outlined),
+            onPressed: _openCamera,
+          ),
+        ],
+      ),
+      body: Container(
+        color: const Color(0xFF0F0F23),
+        width: double.infinity,
+        height: double.infinity,
+        child: Column(
+          children: [
+            // Avatar
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Column(
+                children: [
+                  ClipOval(
+                    child: Image.asset(
+                      avatarPath,
+                      width: 100,
+                      height: 100,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          width: 100,
+                          height: 100,
+                          color: Colors.orange,
+                          child: Center(
+                            child: Text(
+                              currentLangMeta['flag'] ?? '?',
+                              style: const TextStyle(fontSize: 40),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    switch (speechState.state) {
+                      AdriState.listening => 'Escuchando…',
+                      AdriState.waiting => 'Esperando…',
+                      AdriState.speaking => 'Hablando…',
+                      AdriState.idle => '${currentLangMeta['flag']} ${currentLangMeta['label']} Voice',
+                    },
+                    style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(color: Colors.white24, height: 1),
+            // Historial de mensajes
+            Expanded(
+              child: Container(
+                color: const Color(0xFF0F0F23),
+                child: ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _messages.length + (_isWaitingForResponse ? 1 : 0),
+                  itemBuilder: (context, index) {
+                    if (index == _messages.length) {
+                      return const Center(
+                        child: SizedBox(
+                          width: 30,
+                          height: 30,
+                          child: CircularProgressIndicator(strokeWidth: 3),
+                        ),
+                      );
+                    }
+                    final msg = _messages[index];
+                    final isUser = msg['role'] == 'user';
+                    return _ChatBubble(
+                      text: msg['text'],
+                      isUser: isUser,
+                      translation: msg['translation'],
+                      providerUsed: msg['provider'],
+                      onReplayAvatar: isUser ? null : () => _replayAvatar(msg),
+                      onReplayTranslation: isUser ? null : () => _replayTranslation(msg),
+                      showTranslationOnly: !isUser && _showTranslationOnly,
+                    );
+                  },
+                ),
+              ),
+            ),
+            // Entrada de texto y micrófono
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: Icon(
+                        speechState.state == AdriState.listening
+                            ? Icons.mic
+                            : Icons.mic_none,
+                        color: speechState.state == AdriState.listening
+                            ? const Color(0xFFEC4899)
+                            : Colors.white70,
+                      ),
+                      onPressed: _isProcessing ? null : _onMicPressed,
+                    ),
+                    Expanded(
+                      child: TextField(
+                        controller: _controller,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: InputDecoration(
+                          hintText: 'Type or speak...',
+                          hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
+                          filled: true,
+                          fillColor: const Color(0xFF1A1A2E),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(24),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                        onSubmitted: (_) => _sendMessage(),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    CircleAvatar(
+                      backgroundColor: const Color(0xFFEC4899),
+                      child: IconButton(
+                        icon: const Icon(Icons.send, color: Colors.white, size: 20),
+                        onPressed: _isProcessing ? null : () => _sendMessage(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================================
+// BURBUJA DE CHAT
+// ============================================================
+class _ChatBubble extends StatelessWidget {
+  final String text;
+  final bool isUser;
+  final String? translation;
+  final String? providerUsed;
+  final VoidCallback? onReplayAvatar;
+  final VoidCallback? onReplayTranslation;
+  final bool showTranslationOnly;
+
+  const _ChatBubble({
+    required this.text,
+    required this.isUser,
+    this.translation,
+    this.providerUsed,
+    this.onReplayAvatar,
+    this.onReplayTranslation,
+    this.showTranslationOnly = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasTranslation =
+        !isUser && translation != null && translation!.trim().isNotEmpty;
+    final shouldShowAvatar = !showTranslationOnly || isUser;
+
+    return Align(
+      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: isUser ? const Color(0xFF1E3A5F) : const Color(0xFF7C3AED),
+          borderRadius: BorderRadius.only(
+            topLeft: const Radius.circular(16),
+            topRight: const Radius.circular(16),
+            bottomLeft: Radius.circular(isUser ? 16 : 4),
+            bottomRight: Radius.circular(isUser ? 4 : 16),
+          ),
+        ),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.75,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (shouldShowAvatar)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      text,
+                      style: const TextStyle(color: Colors.white, fontSize: 15, height: 1.4),
+                    ),
+                  ),
+                  if (onReplayAvatar != null)
+                    InkWell(
+                      onTap: onReplayAvatar,
+                      borderRadius: BorderRadius.circular(16),
+                      child: const Padding(
+                        padding: EdgeInsets.only(left: 6, top: 1),
+                        child: Icon(Icons.volume_up_rounded, size: 18, color: Colors.white70),
+                      ),
+                    ),
+                ],
+              ),
+            if (hasTranslation) ...[
+              if (shouldShowAvatar) ...[
+                const SizedBox(height: 6),
+                Container(height: 1, color: Colors.white.withOpacity(0.2)),
+                const SizedBox(height: 6),
+              ],
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      translation!,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.75),
+                        fontSize: 13,
+                        fontStyle: FontStyle.italic,
+                        height: 1.3,
+                      ),
+                    ),
+                  ),
+                  if (onReplayTranslation != null)
+                    InkWell(
+                      onTap: onReplayTranslation,
+                      borderRadius: BorderRadius.circular(16),
+                      child: const Padding(
+                        padding: EdgeInsets.only(left: 6, top: 1),
+                        child: Icon(Icons.volume_up_rounded, size: 16, color: Colors.white54),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+            if (providerUsed != null && providerUsed!.isNotEmpty && shouldShowAvatar) ...[
+              const SizedBox(height: 4),
+              Text(
+                'vía $providerUsed',
+                style: TextStyle(color: Colors.white.withOpacity(0.35), fontSize: 10),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================================
+// INDICADOR DE TIPEO
+// ============================================================
+class _TypingIndicator extends StatefulWidget {
+  const _TypingIndicator();
+
+  @override
+  State<_TypingIndicator> createState() => _TypingIndicatorState();
+}
+
+class _TypingIndicatorState extends State<_TypingIndicator>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: const Color(0xFF7C3AED),
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(16),
+            topRight: Radius.circular(16),
+            bottomRight: Radius.circular(16),
+            bottomLeft: Radius.circular(4),
+          ),
+        ),
+        child: AnimatedBuilder(
+          animation: _controller,
+          builder: (context, _) {
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: List.generate(3, (i) {
+                final t = (_controller.value - i * 0.2) % 1.0;
+                final opacity = (t < 0.5) ? (0.3 + t) : (1.3 - t);
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  child: Opacity(
+                    opacity: opacity.clamp(0.3, 1.0),
+                    child: const CircleAvatar(
+                      radius: 3.5,
+                      backgroundColor: Colors.white,
+                    ),
+                  ),
+                );
+              }),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}

@@ -1,0 +1,188 @@
+import 'dart:io';
+import 'dart:math';
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:google_mlkit_translation/google_mlkit_translation.dart';
+import '../core/utils/logger.dart';
+
+class ImageTranslationResult {
+  final String originalText;
+  final String translatedText;
+  final String sourceLanguage;
+  final String targetLanguage;
+  final List<TextBlock> textBlocks;
+  final File imageFile;
+
+  ImageTranslationResult({
+    required this.originalText,
+    required this.translatedText,
+    required this.sourceLanguage,
+    required this.targetLanguage,
+    required this.textBlocks,
+    required this.imageFile,
+  });
+}
+
+class CameraTranslationService {
+  final TextRecognizer _textRecognizer = TextRecognizer();
+  final ImagePicker _imagePicker = ImagePicker();
+  OnDeviceTranslator? _translator;
+  bool _isModelDownloaded = false;
+
+  Future<void> ensureModelDownloaded(String sourceLang, String targetLang) async {
+    if (_isModelDownloaded && _translator != null) return;
+
+    LinguaLogger.info('TRANSLATE: Descargando modelo $sourceLang -> $targetLang...');
+
+    final modelManager = OnDeviceTranslatorModelManager();
+
+    // En google_mlkit_translation 0.13.1, los métodos usan String, no TranslateLanguage
+    final sourceDownloaded = await modelManager.isModelDownloaded(sourceLang);
+    final targetDownloaded = await modelManager.isModelDownloaded(targetLang);
+
+    if (!sourceDownloaded) {
+      await modelManager.downloadModel(sourceLang, isWifiRequired: false);
+    }
+    if (!targetDownloaded) {
+      await modelManager.downloadModel(targetLang, isWifiRequired: false);
+    }
+
+    // Crear traductor con TranslateLanguage enum
+    final sourceModel = _getTranslateLanguage(sourceLang);
+    final targetModel = _getTranslateLanguage(targetLang);
+
+    _translator = OnDeviceTranslator(
+      sourceLanguage: sourceModel,
+      targetLanguage: targetModel,
+    );
+    _isModelDownloaded = true;
+
+    LinguaLogger.info('TRANSLATE: Modelo listo');
+  }
+
+  TranslateLanguage _getTranslateLanguage(String bcpCode) {
+    switch (bcpCode.toLowerCase()) {
+      case 'es':
+        return TranslateLanguage.spanish;
+      case 'en':
+        return TranslateLanguage.english;
+      case 'fr':
+        return TranslateLanguage.french;
+      case 'de':
+        return TranslateLanguage.german;
+      case 'it':
+        return TranslateLanguage.italian;
+      case 'pt':
+        return TranslateLanguage.portuguese;
+      case 'ja':
+        return TranslateLanguage.japanese;
+      case 'zh':
+        return TranslateLanguage.chinese;
+      case 'ko':
+        return TranslateLanguage.korean;
+      case 'ru':
+        return TranslateLanguage.russian;
+      case 'ar':
+        return TranslateLanguage.arabic;
+      case 'hi':
+        return TranslateLanguage.hindi;
+      default:
+        return TranslateLanguage.english;
+    }
+  }
+
+  Future<ImageTranslationResult?> translateFromCamera({
+    String targetLanguage = 'es',
+    String expectedSourceLanguage = 'en',
+  }) async {
+    try {
+      final XFile? photo = await _imagePicker.pickImage(
+        source: ImageSource.camera,
+        preferredCameraDevice: CameraDevice.rear,
+        imageQuality: 85,
+      );
+
+      if (photo == null) return null;
+
+      return await _processImage(
+        File(photo.path),
+        targetLanguage: targetLanguage,
+        expectedSourceLanguage: expectedSourceLanguage,
+      );
+    } catch (e) {
+      LinguaLogger.error('TRANSLATE Camera error: $e');
+      return null;
+    }
+  }
+
+  Future<ImageTranslationResult?> translateFromGallery({
+    String targetLanguage = 'es',
+    String expectedSourceLanguage = 'en',
+  }) async {
+    try {
+      final XFile? image = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+      );
+
+      if (image == null) return null;
+
+      return await _processImage(
+        File(image.path),
+        targetLanguage: targetLanguage,
+        expectedSourceLanguage: expectedSourceLanguage,
+      );
+    } catch (e) {
+      LinguaLogger.error('TRANSLATE Gallery error: $e');
+      return null;
+    }
+  }
+
+  Future<ImageTranslationResult?> _processImage(
+    File imageFile, {
+    required String targetLanguage,
+    required String expectedSourceLanguage,
+  }) async {
+    try {
+      LinguaLogger.info('TRANSLATE: Procesando imagen...');
+      await ensureModelDownloaded(expectedSourceLanguage, targetLanguage);
+
+      final inputImage = InputImage.fromFile(imageFile);
+      final recognizedText = await _textRecognizer.processImage(inputImage);
+
+      if (recognizedText.text.trim().isEmpty) {
+        LinguaLogger.warning('TRANSLATE: No se detectó texto');
+        return null;
+      }
+
+      LinguaLogger.info('TRANSLATE: Texto detectado: "${recognizedText.text.substring(0, min(50, recognizedText.text.length))}..."');
+
+      String translatedText = '';
+      if (_translator != null) {
+        translatedText = await _translator!.translateText(recognizedText.text);
+      }
+
+      LinguaLogger.info('TRANSLATE: Traducción completada');
+
+      return ImageTranslationResult(
+        originalText: recognizedText.text,
+        translatedText: translatedText,
+        sourceLanguage: expectedSourceLanguage,
+        targetLanguage: targetLanguage,
+        textBlocks: recognizedText.blocks,
+        imageFile: imageFile,
+      );
+    } catch (e) {
+      LinguaLogger.error('TRANSLATE Process error: $e');
+      return null;
+    }
+  }
+
+  void dispose() {
+    _textRecognizer.close();
+    _translator?.close();
+  }
+}
+
+int min(int a, int b) => a < b ? a : b;

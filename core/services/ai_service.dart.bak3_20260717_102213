@@ -1,0 +1,112 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import '../config/api_config.dart';
+import '../config/ai_persona_config.dart';
+import '../utils/logger.dart';
+
+/// Resultado de una respuesta de Adri:
+///  - taggedText: texto con las etiquetas [SONRISA_ABIERTA] etc,
+///    tal como lo generó el LLM. Se usa para animar el avatar.
+///  - cleanText: el mismo texto SIN etiquetas. Se manda al TTS y se
+///    muestra en la burbuja del chat.
+///  - spanishTranslation: traducción al español, siempre presente
+///    (aunque el idioma seleccionado sea otro), para mostrarse debajo
+///    del texto principal en la burbuja.
+class AdriResponse {
+  final String taggedText;
+  final String cleanText;
+  final String spanishTranslation;
+  const AdriResponse({
+    required this.taggedText,
+    required this.cleanText,
+    required this.spanishTranslation,
+  });
+}
+
+const String _kSpanishFallback =
+    'Lo siento, no pude entender eso. ¿Puedes intentarlo de nuevo?';
+
+class AIService {
+  final String _baseUrl;
+
+  AIService({String apiKey = '', String? baseUrl})
+      : _baseUrl = baseUrl ?? ApiConfig.backendBaseUrl;
+
+  Future<AdriResponse> sendMessage(String prompt, {String? lang}) async {
+    final effectiveLang = lang ?? 'en';
+    try {
+      final systemPrompt = AIPersonaConfig.systemPromptFor(effectiveLang);
+
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl/chat'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'messages': [
+                {'role': 'system', 'content': systemPrompt},
+                {'role': 'user', 'content': prompt}
+              ],
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final raw = data['text']?.toString() ??
+            AIPersonaConfig.fallbackMessageFor(effectiveLang);
+        return _parseDualLanguage(raw, effectiveLang);
+      } else {
+        Logger.error('AI Service error: ${response.statusCode}');
+        return _fallbackResponse(effectiveLang);
+      }
+    } catch (e, st) {
+      Logger.error('AI Service exception', error: e, stackTrace: st);
+      return _fallbackResponse(effectiveLang);
+    }
+  }
+
+  /// Separa "[tags] texto ===ES=== traducción" en sus 3 componentes.
+  /// Si el modelo no incluyó el separador (puede pasar, ningún LLM es
+  /// 100% consistente con el formato), se degrada con gracia: se usa
+  /// todo el texto como respuesta y se deja la traducción vacía en
+  /// vez de romper la conversación.
+  AdriResponse _parseDualLanguage(String raw, String lang) {
+    const delimiter = '===ES===';
+    final idx = raw.indexOf(delimiter);
+
+    String taggedPart;
+    String spanishPart;
+    if (idx == -1) {
+      Logger.error(
+          'AI Service: el modelo no devolvió el separador $delimiter (idioma=$lang). '
+          'Revisar el prompt o el proveedor LLM en uso.');
+      taggedPart = raw;
+      spanishPart = '';
+    } else {
+      taggedPart = raw.substring(0, idx);
+      spanishPart = raw.substring(idx + delimiter.length);
+    }
+
+    final cleanTagged = AIPersonaConfig.filterResponse(taggedPart);
+    final cleanSpanish = AIPersonaConfig.filterResponse(spanishPart);
+
+    return AdriResponse(
+      taggedText: cleanTagged,
+      cleanText: _stripTags(cleanTagged),
+      spanishTranslation: cleanSpanish,
+    );
+  }
+
+  AdriResponse _fallbackResponse(String lang) {
+    final msg = AIPersonaConfig.fallbackMessageFor(lang);
+    return AdriResponse(
+      taggedText: msg,
+      cleanText: msg,
+      spanishTranslation: _kSpanishFallback,
+    );
+  }
+
+  static final RegExp _tagRe = RegExp(r'\[([A-ZÁÉÍÓÚÑ_]+)\]');
+  String _stripTags(String raw) =>
+      raw.replaceAll(_tagRe, ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+}

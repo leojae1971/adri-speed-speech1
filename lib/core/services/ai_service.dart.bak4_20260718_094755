@@ -1,0 +1,137 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import '../config/api_config.dart';
+import '../config/ai_persona_config.dart';
+import '../utils/logger.dart';
+
+/// Resultado de una respuesta de Adri:
+///  - taggedText: texto con las etiquetas [SONRISA_ABIERTA] etc,
+///    tal como lo generó el LLM. Se usa para animar el avatar.
+///  - cleanText: el mismo texto SIN etiquetas. Se manda al TTS y se
+///    muestra en la burbuja del chat.
+///  - spanishTranslation: traducción al español, siempre presente.
+///  - providerUsed: qué proveedor LLM respondió realmente
+///    (groq/cerebras/gemini/deepseek/cache/fallback) — útil para
+///    diagnosticar cuál se está agotando o fallando más seguido.
+class AdriResponse {
+  final String taggedText;
+  final String cleanText;
+  final String spanishTranslation;
+  final String providerUsed;
+  const AdriResponse({
+    required this.taggedText,
+    required this.cleanText,
+    required this.spanishTranslation,
+    this.providerUsed = 'unknown',
+  });
+}
+
+const String _kSpanishFallback =
+    'Lo siento, no pude entender eso. ¿Puedes intentarlo de nuevo?';
+
+class AIService {
+  final String _baseUrl;
+
+  /// Caché en memoria (se pierde al cerrar la app, no persiste a
+  /// disco a propósito: las respuestas de Adri pueden variar con el
+  /// contexto de la lección, así que solo evita repetir la MISMA
+  /// pregunta dos veces dentro de la misma sesión).
+  final Map<String, AdriResponse> _cache = {};
+
+  AIService({String apiKey = '', String? baseUrl})
+      : _baseUrl = baseUrl ?? ApiConfig.backendBaseUrl;
+
+  String _cacheKey(String prompt, String lang) =>
+      '$lang::${prompt.trim().toLowerCase()}';
+
+  Future<AdriResponse> sendMessage(String prompt, {String? lang}) async {
+    final effectiveLang = lang ?? 'en';
+    final key = _cacheKey(prompt, effectiveLang);
+
+    final cached = _cache[key];
+    if (cached != null) {
+      Logger.log('AI Service: respuesta desde caché ("$prompt", $effectiveLang)');
+      return cached;
+    }
+
+    try {
+      final systemPrompt = AIPersonaConfig.systemPromptFor(effectiveLang);
+
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl/chat'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'messages': [
+                {'role': 'system', 'content': systemPrompt},
+                {'role': 'user', 'content': prompt}
+              ],
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final raw = data['text']?.toString() ??
+            AIPersonaConfig.fallbackMessageFor(effectiveLang);
+        final providerUsed = data['provider_used']?.toString() ?? 'unknown';
+        final parsed = _parseDualLanguage(raw, effectiveLang, providerUsed);
+        _cache[key] = parsed; // solo se cachean respuestas reales, no fallbacks
+        return parsed;
+      } else {
+        Logger.error('AI Service error: ${response.statusCode}');
+        return _fallbackResponse(effectiveLang);
+      }
+    } catch (e, st) {
+      Logger.error('AI Service exception', error: e, stackTrace: st);
+      return _fallbackResponse(effectiveLang);
+    }
+  }
+
+  AdriResponse _parseDualLanguage(
+      String raw, String lang, String providerUsed) {
+    const delimiter = '===ES===';
+    final idx = raw.indexOf(delimiter);
+
+    String taggedPart;
+    String spanishPart;
+    if (idx == -1) {
+      Logger.error(
+          'AI Service: el modelo no devolvió el separador $delimiter (idioma=$lang). '
+          'Revisar el prompt o el proveedor LLM en uso.');
+      taggedPart = raw;
+      spanishPart = '';
+    } else {
+      taggedPart = raw.substring(0, idx);
+      spanishPart = raw.substring(idx + delimiter.length);
+    }
+
+    final cleanTagged = AIPersonaConfig.filterResponse(taggedPart);
+    final cleanSpanish = AIPersonaConfig.filterResponse(spanishPart);
+
+    return AdriResponse(
+      taggedText: cleanTagged,
+      cleanText: _stripTags(cleanTagged),
+      spanishTranslation: cleanSpanish,
+      providerUsed: providerUsed,
+    );
+  }
+
+  AdriResponse _fallbackResponse(String lang) {
+    final msg = AIPersonaConfig.fallbackMessageFor(lang);
+    return AdriResponse(
+      taggedText: msg,
+      cleanText: msg,
+      spanishTranslation: _kSpanishFallback,
+      providerUsed: 'fallback',
+    );
+  }
+
+  static final RegExp _tagRe = RegExp(r'\[([A-ZÁÉÍÓÚÑ_]+)\]');
+  String _stripTags(String raw) =>
+      raw.replaceAll(_tagRe, ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+
+  /// Por si en algún momento se quiere forzar una respuesta nueva
+  /// (ej. botón "regenerar respuesta" a futuro).
+  void clearCache() => _cache.clear();
+}

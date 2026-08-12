@@ -1,0 +1,640 @@
+==================================================
+        ADRI SPEED SPEECH - PROYECTO COMPLETO      
+==================================================
+Generado el: Wed Aug 12 11:13:51 EAT 2026
+Ruta del proyecto: /Users/jannetgonzalezfigueredo/Documents/adri_speed_speech_clean
+
+--------------------------------------------------
+1.  ESTRUCTURA DE CARPETAS Y ARCHIVOS
+--------------------------------------------------
+⚠️  tree no está instalado. Mostrando lista de archivos...
+README.md
+analysis_options.yaml
+android/app/build.gradle
+android/app/src/debug/AndroidManifest.xml
+android/app/src/main/AndroidManifest.xml
+android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+android/app/src/main/kotlin/com/example/adri_speed_speech_clean/MainActivity.kt
+android/app/src/main/kotlin/com/example/lingua_core/MainActivity.kt
+android/app/src/main/res/drawable-v21/launch_background.xml
+android/app/src/main/res/drawable/launch_background.xml
+android/app/src/main/res/mipmap-hdpi/ic_launcher.png
+android/app/src/main/res/mipmap-mdpi/adri_en.png
+android/app/src/main/res/mipmap-mdpi/ic_launcher.png
+android/app/src/main/res/mipmap-xhdpi/adri_en.png
+android/app/src/main/res/mipmap-xhdpi/ic_launcher.png
+android/app/src/main/res/mipmap-xxhdpi/adri_en.png
+android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
+android/app/src/main/res/mipmap-xxxhdpi/adri_en.png
+android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+android/app/src/main/res/values-night/styles.xml
+android/app/src/main/res/values/styles.xml
+android/app/src/profile/AndroidManifest.xml
+android/build.gradle
+android/gradle.properties
+android/gradle/wrapper/gradle-wrapper.jar
+android/gradle/wrapper/gradle-wrapper.properties
+android/gradlew
+android/gradlew.bat
+android/local.properties
+android/settings.gradle
+asia_avatar.gif
+asia_background.jpg
+assets/asia_avatar.gif
+assets/asia_background.jpg
+assets/avatars/adri_am.jpg
+assets/avatars/adri_am.png
+assets/avatars/adri_ar.png
+assets/avatars/adri_bn.png
+assets/avatars/adri_cs.png
+assets/avatars/adri_da.png
+assets/avatars/adri_de.png
+assets/avatars/adri_el.png
+assets/avatars/adri_en.png
+assets/avatars/adri_es.png
+assets/avatars/adri_fa.jpg
+assets/avatars/adri_fa.png
+assets/avatars/adri_fi.png
+assets/avatars/adri_fr.png
+assets/avatars/adri_gu.png
+assets/avatars/adri_he.jpg
+assets/avatars/adri_he.png
+assets/avatars/adri_hi.png
+assets/avatars/adri_hu.png
+assets/avatars/adri_id.png
+assets/avatars/adri_it.png
+assets/avatars/adri_ja.png
+assets/avatars/adri_ko.png
+assets/avatars/adri_ms.jpg
+assets/avatars/adri_ms.png
+assets/avatars/adri_my.png
+assets/avatars/adri_nb.png
+assets/avatars/adri_ne.jpg
+assets/avatars/adri_ne.png
+assets/avatars/adri_nl.png
+assets/avatars/adri_pa.png
+assets/avatars/adri_pl.png
+assets/avatars/adri_pt.png
+assets/avatars/adri_ro.png
+assets/avatars/adri_ru.png
+assets/avatars/adri_si.jpg
+assets/avatars/adri_si.png
+assets/avatars/adri_suk.png
+assets/avatars/adri_sv.png
+assets/avatars/adri_sw.png
+assets/avatars/adri_ta.png
+assets/avatars/adri_th.png
+assets/avatars/adri_tl.png
+assets/avatars/adri_tr.png
+assets/avatars/adri_uk.png
+assets/avatars/adri_uz.jpg
+assets/avatars/adri_uz.png
+assets/avatars/adri_vi.png
+assets/avatars/adri_zh.png
+assets/es_avatar.gif
+assets/es_background.jpg
+assets/uk_avatar.gif
+assets/uk_background.jpg
+avatars/adri_am.jpg
+avatars/adri_ar.png
+avatars/adri_bn.png
+avatars/adri_de.png
+avatars/adri_el.png
+avatars/adri_en.png
+avatars/adri_fa.jpg
+avatars/adri_fr.png
+avatars/adri_gu.png
+avatars/adri_he.jpg
+avatars/adri_hi.png
+avatars/adri_id.png
+avatars/adri_it.png
+avatars/adri_ja.png
+avatars/adri_ko.png
+avatars/adri_ms.jpg
+avatars/adri_my.png
+avatars/adri_ne.jpg
+avatars/adri_nl.png
+avatars/adri_pa.png
+avatars/adri_pl.png
+avatars/adri_pt.png
+avatars/adri_ro.png
+avatars/adri_ru.png
+avatars/adri_si.jpg
+avatars/adri_sp.png
+avatars/adri_suk.png
+avatars/adri_sw.png
+avatars/adri_ta.png
+avatars/adri_th.png
+avatars/adri_tl.png
+avatars/adri_tr.png
+avatars/adri_uk.png
+avatars/adri_uz.jpg
+avatars/adri_vi.png
+avatars/adri_zh.png
+constants/scenario_config.dart
+core/config/ai_persona_config.dart
+core/config/ai_persona_config.dart.bak2_20260717_091947
+core/config/ai_persona_config.dart.bak4_20260718_094755
+core/config/ai_persona_config.dart.bak_20260717_091726
+core/config/api_config.dart
+core/config/api_config.dart.bak4_20260718_094755
+core/config/locale_map.dart
+core/constants/prompt_constants.dart
+core/errors/failures.dart
+core/screens/splash_screen.dart
+core/services/adri_avatar_widget.dart
+core/services/ai_service.dart
+core/services/ai_service.dart.bak2_20260717_091947
+core/services/ai_service.dart.bak3_20260717_102213
+core/services/ai_service.dart.bak4_20260718_094755
+core/services/ai_service.dart.bak_20260717_091726
+core/services/avatar/adri_avatar_widget.dart
+core/services/avatar/adri_avatar_widget.dart.bak10_20260720_094453
+core/services/avatar/adri_avatar_widget.dart.bak10_20260720_105100
+core/services/avatar/adri_avatar_widget.dart.bak13_20260721_084720
+core/services/avatar/adri_avatar_widget.dart.bak13_20260721_094643
+core/services/avatar/adri_avatar_widget.dart.bak14_20260721_215729
+core/services/avatar/adri_avatar_widget.dart.bak14c_20260722_075403
+core/services/avatar/adri_avatar_widget.dart.bak14c_20260722_075610
+core/services/avatar/adri_avatar_widget.dart.bak14c_20260722_075649
+core/services/avatar/adri_avatar_widget.dart.bak14c_20260722_081930
+core/services/avatar/adri_avatar_widget.dart.bak15_20260723_085415
+core/services/avatar/adri_avatar_widget.dart.bak2_20260717_091947
+core/services/avatar/adri_avatar_widget.dart.bak4_20260718_094755
+core/services/avatar/adri_avatar_widget.dart.bak7_20260718_175655
+core/services/avatar/adri_avatar_widget.dart.bak7_20260718_175741
+core/services/avatar/adri_avatar_widget.dart.bak7_20260718_230027
+core/services/avatar/adri_avatar_widget.dart.bak7_20260718_230910
+core/services/avatar/adri_avatar_widget.dart.bak8_20260719_081252
+core/services/avatar/adri_avatar_widget.dart.bak9_20260719_090215
+core/services/avatar/avatar_lip_sync_service.dart
+core/services/avatar/dialogue_script_parser.dart
+core/services/avatar_lip_sync_service.dart
+core/services/backend_warmup_service.dart
+core/services/backend_warmup_service.dart.bak7_20260718_175655
+core/services/backend_warmup_service.dart.bak7_20260718_230027
+core/services/backend_warmup_service.dart.bak7_20260718_230910
+core/services/camera_translation_service.dart
+core/services/camera_translation_service.dart.bak7_20260718_175655
+core/services/camera_translation_service.dart.bak7_20260718_230027
+core/services/camera_translation_service.dart.bak7_20260718_230910
+core/services/camera_translation_service.dart.bak_20260717_091726
+core/services/database.dart
+core/services/database.dart.bak3_20260717_102213
+core/services/database.dart.bak4_20260718_094755
+core/services/database.dart.bak5_20260718_130755
+core/services/database.g.dart
+core/services/hybrid_tts_service.dart
+core/services/hybrid_tts_service.dart.bak13_20260721_084720
+core/services/hybrid_tts_service.dart.bak13_20260721_094643
+core/services/hybrid_tts_service.dart.bak4_20260718_094755
+core/services/hybrid_tts_service.dart.bak7_20260718_175655
+core/services/hybrid_tts_service.dart.bak7_20260718_175741
+core/services/hybrid_tts_service.dart.bak7_20260718_230027
+core/services/hybrid_tts_service.dart.bak7_20260718_230910
+core/services/hybrid_tts_service.dart.bak8_20260719_081252
+core/services/hybrid_tts_service.dart.bak9_20260719_090215
+core/services/notification_service.dart
+core/services/speech_service.dart
+core/services/speech_service.dart.bak13_20260721_084720
+core/services/speech_service.dart.bak13_20260721_094643
+core/services/speech_service.dart.bak14_20260721_215729
+core/services/speech_service.dart.bak15_20260723_085415
+core/services/speech_service.dart.bak4_20260718_094755
+core/services/tts_service.dart
+core/utils/language_detector.dart
+core/utils/logger.dart
+core/utils/logger.dart.bak_20260717_091726
+es_avatar.gif
+es_background.jpg
+features/statistics/presentation/screens/statistics_screen.dart
+features/vocabulary/data/repositories/vocabulary_repository_impl.dart
+features/vocabulary/domain/entities/vocabulary_item.dart
+features/vocabulary/domain/entities/vocabulary_word.dart
+features/vocabulary/domain/repositories/vocabulary_repository.dart
+features/vocabulary/presentation/providers/vocabulary_providers.dart
+features/vocabulary/presentation/screens/ai_persona_config.dart
+features/vocabulary/presentation/screens/chat_screen.dart
+features/vocabulary/presentation/screens/chat_screen.dart.bak10_20260720_094453
+features/vocabulary/presentation/screens/chat_screen.dart.bak10_20260720_105100
+features/vocabulary/presentation/screens/chat_screen.dart.bak11_20260720_115627
+features/vocabulary/presentation/screens/chat_screen.dart.bak11_20260720_121108
+features/vocabulary/presentation/screens/chat_screen.dart.bak12_20260720_123243
+features/vocabulary/presentation/screens/chat_screen.dart.bak12_20260720_123537
+features/vocabulary/presentation/screens/chat_screen.dart.bak13_20260721_084720
+features/vocabulary/presentation/screens/chat_screen.dart.bak13_20260721_094643
+features/vocabulary/presentation/screens/chat_screen.dart.bak14_20260721_215729
+features/vocabulary/presentation/screens/chat_screen.dart.bak15_20260723_085415
+features/vocabulary/presentation/screens/chat_screen.dart.bak2_20260717_091947
+features/vocabulary/presentation/screens/chat_screen.dart.bak3_20260717_102213
+features/vocabulary/presentation/screens/chat_screen.dart.bak4_20260718_094755
+features/vocabulary/presentation/screens/chat_screen.dart.bak5_20260718_130755
+features/vocabulary/presentation/screens/chat_screen.dart.bak6_20260718_131155
+features/vocabulary/presentation/screens/chat_screen.dart.bak7_20260718_175655
+features/vocabulary/presentation/screens/chat_screen.dart.bak7_20260718_175741
+features/vocabulary/presentation/screens/chat_screen.dart.bak7_20260718_230027
+features/vocabulary/presentation/screens/chat_screen.dart.bak7_20260718_230910
+features/vocabulary/presentation/screens/chat_screen.dart.bak8_20260719_081252
+features/vocabulary/presentation/screens/chat_screen.dart.bak9_20260719_090215
+features/vocabulary/presentation/screens/image_translation_screen.dart
+features/vocabulary/presentation/screens/vocabulary_review_screen.dart
+ios/Flutter/AppFrameworkInfo.plist
+ios/Flutter/Debug.xcconfig
+ios/Flutter/Generated.xcconfig
+ios/Flutter/Release.xcconfig
+ios/Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage/Package.swift
+ios/Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage/Sources/FlutterGeneratedPluginSwiftPackage/FlutterGeneratedPluginSwiftPackage.swift
+ios/Flutter/ephemeral/flutter_lldb_helper.py
+ios/Flutter/ephemeral/flutter_lldbinit
+ios/Flutter/ephemeral/flutter_native_integration.env
+ios/Flutter/flutter_export_environment.sh
+ios/Podfile
+ios/Runner.xcodeproj/project.pbxproj
+ios/Runner.xcodeproj/project.xcworkspace/contents.xcworkspacedata
+ios/Runner.xcodeproj/project.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
+ios/Runner.xcodeproj/project.xcworkspace/xcshareddata/WorkspaceSettings.xcsettings
+ios/Runner.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+ios/Runner.xcodeproj/xcshareddata/xcschemes/Runner.xcscheme
+ios/Runner.xcworkspace/contents.xcworkspacedata
+ios/Runner.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
+ios/Runner.xcworkspace/xcshareddata/WorkspaceSettings.xcsettings
+ios/Runner.xcworkspace/xcshareddata/swiftpm/Package.resolved
+ios/Runner/AppDelegate.swift
+ios/Runner/Assets.xcassets/AppIcon.appiconset/Contents.json
+ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024x1024@1x.png
+ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-20x20@1x.png
+ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-20x20@2x.png
+ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-20x20@3x.png
+ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-29x29@1x.png
+ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-29x29@2x.png
+ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-29x29@3x.png
+ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-40x40@1x.png
+ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-40x40@2x.png
+ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-40x40@3x.png
+ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-60x60@2x.png
+ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-60x60@3x.png
+ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-76x76@1x.png
+ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-76x76@2x.png
+ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-83.5x83.5@2x.png
+ios/Runner/Assets.xcassets/LaunchImage.imageset/Contents.json
+ios/Runner/Assets.xcassets/LaunchImage.imageset/LaunchImage.png
+ios/Runner/Assets.xcassets/LaunchImage.imageset/LaunchImage@2x.png
+ios/Runner/Assets.xcassets/LaunchImage.imageset/LaunchImage@3x.png
+ios/Runner/Assets.xcassets/LaunchImage.imageset/README.md
+ios/Runner/Base.lproj/LaunchScreen.storyboard
+ios/Runner/Base.lproj/Main.storyboard
+ios/Runner/GeneratedPluginRegistrant.h
+ios/Runner/GeneratedPluginRegistrant.m
+ios/Runner/Info.plist
+ios/Runner/Runner-Bridging-Header.h
+ios/Runner/SceneDelegate.swift
+ios/RunnerTests/RunnerTests.swift
+l10n/app_en.arb
+l10n/app_es.arb
+l10n/app_localizations.dart
+l10n/app_localizations_en.dart
+l10n/app_localizations_es.dart
+l10n/app_localizations_sw.dart
+l10n/app_sw.arb
+lib/constants/scenario_config.dart
+lib/core/config/ai_persona_config.dart
+lib/core/config/ai_persona_config.dart.bak2_20260717_091947
+lib/core/config/ai_persona_config.dart.bak4_20260718_094755
+lib/core/config/ai_persona_config.dart.bak_20260717_091726
+lib/core/config/api_config.dart
+lib/core/config/api_config.dart.bak4_20260718_094755
+lib/core/config/locale_map.dart
+lib/core/constants/prompt_constants.dart
+lib/core/errors/failures.dart
+lib/core/screens/splash_screen.dart
+lib/core/services/adri_avatar_widget.dart
+lib/core/services/ai_service.dart
+lib/core/services/ai_service.dart.bak2_20260717_091947
+lib/core/services/ai_service.dart.bak3_20260717_102213
+lib/core/services/ai_service.dart.bak4_20260718_094755
+lib/core/services/ai_service.dart.bak_20260717_091726
+lib/core/services/avatar/adri_avatar_widget.dart
+lib/core/services/avatar/adri_avatar_widget.dart.bak10_20260720_094453
+lib/core/services/avatar/adri_avatar_widget.dart.bak10_20260720_105100
+lib/core/services/avatar/adri_avatar_widget.dart.bak13_20260721_084720
+lib/core/services/avatar/adri_avatar_widget.dart.bak13_20260721_094643
+lib/core/services/avatar/adri_avatar_widget.dart.bak14_20260721_215729
+lib/core/services/avatar/adri_avatar_widget.dart.bak14c_20260722_075403
+lib/core/services/avatar/adri_avatar_widget.dart.bak14c_20260722_075610
+lib/core/services/avatar/adri_avatar_widget.dart.bak14c_20260722_075649
+lib/core/services/avatar/adri_avatar_widget.dart.bak14c_20260722_081930
+lib/core/services/avatar/adri_avatar_widget.dart.bak15_20260723_085415
+lib/core/services/avatar/adri_avatar_widget.dart.bak2_20260717_091947
+lib/core/services/avatar/adri_avatar_widget.dart.bak4_20260718_094755
+lib/core/services/avatar/adri_avatar_widget.dart.bak7_20260718_175655
+lib/core/services/avatar/adri_avatar_widget.dart.bak7_20260718_175741
+lib/core/services/avatar/adri_avatar_widget.dart.bak7_20260718_230027
+lib/core/services/avatar/adri_avatar_widget.dart.bak7_20260718_230910
+lib/core/services/avatar/adri_avatar_widget.dart.bak8_20260719_081252
+lib/core/services/avatar/adri_avatar_widget.dart.bak9_20260719_090215
+lib/core/services/avatar/avatar_lip_sync_service.dart
+lib/core/services/avatar/dialogue_script_parser.dart
+lib/core/services/avatar_lip_sync_service.dart
+lib/core/services/backend_warmup_service.dart
+lib/core/services/backend_warmup_service.dart.bak7_20260718_175655
+lib/core/services/backend_warmup_service.dart.bak7_20260718_230027
+lib/core/services/backend_warmup_service.dart.bak7_20260718_230910
+lib/core/services/camera_translation_service.dart
+lib/core/services/camera_translation_service.dart.bak7_20260718_175655
+lib/core/services/camera_translation_service.dart.bak7_20260718_230027
+lib/core/services/camera_translation_service.dart.bak7_20260718_230910
+lib/core/services/camera_translation_service.dart.bak_20260717_091726
+lib/core/services/database.dart
+lib/core/services/database.dart.bak3_20260717_102213
+lib/core/services/database.dart.bak4_20260718_094755
+lib/core/services/database.dart.bak5_20260718_130755
+lib/core/services/database.g.dart
+lib/core/services/hybrid_tts_service.dart
+lib/core/services/hybrid_tts_service.dart.bak13_20260721_084720
+lib/core/services/hybrid_tts_service.dart.bak13_20260721_094643
+lib/core/services/hybrid_tts_service.dart.bak4_20260718_094755
+lib/core/services/hybrid_tts_service.dart.bak7_20260718_175655
+lib/core/services/hybrid_tts_service.dart.bak7_20260718_175741
+lib/core/services/hybrid_tts_service.dart.bak7_20260718_230027
+lib/core/services/hybrid_tts_service.dart.bak7_20260718_230910
+lib/core/services/hybrid_tts_service.dart.bak8_20260719_081252
+lib/core/services/hybrid_tts_service.dart.bak9_20260719_090215
+lib/core/services/notification_service.dart
+lib/core/services/speech_service.dart
+lib/core/services/speech_service.dart.bak13_20260721_084720
+lib/core/services/speech_service.dart.bak13_20260721_094643
+lib/core/services/speech_service.dart.bak14_20260721_215729
+lib/core/services/speech_service.dart.bak15_20260723_085415
+lib/core/services/speech_service.dart.bak4_20260718_094755
+lib/core/services/tts_service.dart
+lib/core/utils/language_detector.dart
+lib/core/utils/logger.dart
+lib/core/utils/logger.dart.bak_20260717_091726
+lib/features/statistics/presentation/screens/statistics_screen.dart
+lib/features/vocabulary/data/repositories/vocabulary_repository_impl.dart
+lib/features/vocabulary/domain/entities/vocabulary_item.dart
+lib/features/vocabulary/domain/entities/vocabulary_word.dart
+lib/features/vocabulary/domain/repositories/vocabulary_repository.dart
+lib/features/vocabulary/presentation/providers/vocabulary_providers.dart
+lib/features/vocabulary/presentation/screens/ai_persona_config.dart
+lib/features/vocabulary/presentation/screens/chat_screen.dart
+lib/features/vocabulary/presentation/screens/chat_screen.dart.bak
+lib/features/vocabulary/presentation/screens/chat_screen.dart.bak10_20260720_094453
+lib/features/vocabulary/presentation/screens/chat_screen.dart.bak10_20260720_105100
+lib/features/vocabulary/presentation/screens/chat_screen.dart.bak11_20260720_115627
+lib/features/vocabulary/presentation/screens/chat_screen.dart.bak11_20260720_121108
+lib/features/vocabulary/presentation/screens/chat_screen.dart.bak12_20260720_123243
+lib/features/vocabulary/presentation/screens/chat_screen.dart.bak12_20260720_123537
+lib/features/vocabulary/presentation/screens/chat_screen.dart.bak13_20260721_084720
+lib/features/vocabulary/presentation/screens/chat_screen.dart.bak13_20260721_094643
+lib/features/vocabulary/presentation/screens/chat_screen.dart.bak14_20260721_215729
+lib/features/vocabulary/presentation/screens/chat_screen.dart.bak15_20260723_085415
+lib/features/vocabulary/presentation/screens/chat_screen.dart.bak2_20260717_091947
+lib/features/vocabulary/presentation/screens/chat_screen.dart.bak3_20260717_102213
+lib/features/vocabulary/presentation/screens/chat_screen.dart.bak4_20260718_094755
+lib/features/vocabulary/presentation/screens/chat_screen.dart.bak5_20260718_130755
+lib/features/vocabulary/presentation/screens/chat_screen.dart.bak6_20260718_131155
+lib/features/vocabulary/presentation/screens/chat_screen.dart.bak7_20260718_175655
+lib/features/vocabulary/presentation/screens/chat_screen.dart.bak7_20260718_175741
+lib/features/vocabulary/presentation/screens/chat_screen.dart.bak7_20260718_230027
+lib/features/vocabulary/presentation/screens/chat_screen.dart.bak7_20260718_230910
+lib/features/vocabulary/presentation/screens/chat_screen.dart.bak8_20260719_081252
+lib/features/vocabulary/presentation/screens/chat_screen.dart.bak9_20260719_090215
+lib/features/vocabulary/presentation/screens/image_translation_screen.dart
+lib/features/vocabulary/presentation/screens/vocabulary_review_screen.dart
+lib/l10n/app_en.arb
+lib/l10n/app_es.arb
+lib/l10n/app_localizations.dart
+lib/l10n/app_localizations_en.dart
+lib/l10n/app_localizations_es.dart
+lib/l10n/app_localizations_sw.dart
+lib/l10n/app_sw.arb
+lib/main.dart
+lib/main.dart.bak3_20260717_102213
+lib/main.dart.bak5_20260718_130755
+lib/main.dart.bak7_20260718_175655
+lib/main.dart.bak7_20260718_230027
+lib/main.dart.bak7_20260718_230910
+lib/screens/splash_screen.dart
+linux/CMakeLists.txt
+linux/flutter/CMakeLists.txt
+linux/flutter/generated_plugin_registrant.cc
+linux/flutter/generated_plugin_registrant.h
+linux/flutter/generated_plugins.cmake
+linux/runner/CMakeLists.txt
+linux/runner/main.cc
+linux/runner/my_application.cc
+linux/runner/my_application.h
+macos/Flutter/Flutter-Debug.xcconfig
+macos/Flutter/Flutter-Release.xcconfig
+macos/Flutter/GeneratedPluginRegistrant.swift
+macos/Flutter/ephemeral/Flutter-Generated.xcconfig
+macos/Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage/Package.swift
+macos/Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage/Sources/FlutterGeneratedPluginSwiftPackage/FlutterGeneratedPluginSwiftPackage.swift
+macos/Flutter/ephemeral/flutter_export_environment.sh
+macos/Flutter/ephemeral/flutter_native_integration.env
+macos/Podfile
+macos/Runner.xcodeproj/project.pbxproj
+macos/Runner.xcodeproj/project.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
+macos/Runner.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+macos/Runner.xcodeproj/xcshareddata/xcschemes/Runner.xcscheme
+macos/Runner.xcworkspace/contents.xcworkspacedata
+macos/Runner.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
+macos/Runner.xcworkspace/xcshareddata/swiftpm/Package.resolved
+macos/Runner/AppDelegate.swift
+macos/Runner/Assets.xcassets/AppIcon.appiconset/Contents.json
+macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_1024.png
+macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_128.png
+macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_16.png
+macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_256.png
+macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_32.png
+macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_512.png
+macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_64.png
+macos/Runner/Base.lproj/MainMenu.xib
+macos/Runner/Configs/AppInfo.xcconfig
+macos/Runner/Configs/Debug.xcconfig
+macos/Runner/Configs/Release.xcconfig
+macos/Runner/Configs/Warnings.xcconfig
+macos/Runner/DebugProfile.entitlements
+macos/Runner/Info.plist
+macos/Runner/MainFlutterWindow.swift
+macos/Runner/Release.entitlements
+macos/RunnerTests/RunnerTests.swift
+main.dart
+main.dart.bak3_20260717_102213
+main.dart.bak5_20260718_130755
+main.dart.bak7_20260718_175655
+main.dart.bak7_20260718_230027
+main.dart.bak7_20260718_230910
+project_summary.txt
+pubspec.yaml
+screens/splash_screen.dart
+test/widget_test.dart
+uk_avatar.gif
+uk_background.jpg
+web/favicon.png
+web/icons/Icon-192.png
+web/icons/Icon-512.png
+web/icons/Icon-maskable-192.png
+web/icons/Icon-maskable-512.png
+web/index.html
+web/manifest.json
+windows/CMakeLists.txt
+windows/flutter/CMakeLists.txt
+windows/flutter/generated_plugin_registrant.cc
+windows/flutter/generated_plugin_registrant.h
+windows/flutter/generated_plugins.cmake
+windows/runner/CMakeLists.txt
+windows/runner/Runner.rc
+windows/runner/flutter_window.cpp
+windows/runner/flutter_window.h
+windows/runner/main.cpp
+windows/runner/resource.h
+windows/runner/resources/app_icon.ico
+windows/runner/runner.exe.manifest
+windows/runner/utils.cpp
+windows/runner/utils.h
+windows/runner/win32_window.cpp
+windows/runner/win32_window.h
+
+--------------------------------------------------
+2.  DESCRIPCIÓN DE ARCHIVOS CLAVE (UBICACIÓN Y FUNCIÓN)
+--------------------------------------------------
+
+📱 FRONTEND (Flutter)
+─────────────────────
+lib/main.dart
+   → Punto de entrada de la app. Configura MultiProvider, rutas y tema.
+
+lib/core/services/ai_service.dart
+   → Gestiona la comunicación con el backend (LLM). Envía mensajes y recibe respuestas con audio.
+
+lib/core/services/hybrid_tts_service.dart
+   → Controla el Text-to-Speech (Edge TTS, Azure, Google). Reproduce la voz del avatar y la traducción.
+
+lib/core/services/speech_service.dart
+   → Reconocimiento de voz (Speech-to-Text). Maneja permisos, dictado y locales.
+
+lib/core/services/avatar/adri_avatar_widget.dart
+   → Widget del avatar. Muestra expresiones faciales y movimiento de labios (visemes) sincronizados con el audio.
+
+lib/core/services/avatar/dialogue_script_parser.dart
+   → Parsea el texto etiquetado con [EXPRESIÓN] que devuelve el LLM y lo convierte en animaciones del avatar.
+
+lib/features/vocabulary/presentation/screens/chat_screen.dart
+   → Pantalla principal de chat. Contiene el selector de idiomas, el historial, el micrófono, el envío de mensajes y la reproducción de audio.
+
+lib/features/vocabulary/presentation/screens/image_translation_screen.dart
+   → Pantalla de traducción con cámara (OCR). Escanea texto y debería traducirlo (actualmente solo muestra el texto escaneado, sin traducción).
+
+lib/core/config/api_config.dart
+   → Configuración de la URL del backend y tiempo de espera de las peticiones.
+
+lib/core/config/ai_persona_config.dart
+   → Prompts del sistema para el LLM, con personalización según el idioma y el nivel del usuario.
+
+lib/core/utils/language_detector.dart
+   → Detecta el idioma del texto del usuario (para cambiar automáticamente el avatar).
+
+lib/l10n/
+   → Archivos de internacionalización (traducciones de la interfaz de usuario).
+
+assets/avatars/
+   → Imágenes de los avatares (41 archivos .png, uno por idioma).
+
+
+⚙️  BACKEND (Python / FastAPI)
+─────────────────────────────
+adri_speed_speech_backend/main.py
+   → Punto de entrada del backend. Define los endpoints /chat, /tts, /transcribe y /health.
+
+adri_speed_speech_backend/router.py
+   → Orquesta la cadena de proveedores (LLM, TTS, STT). Maneja cuotas, circuit breaker y caché.
+
+adri_speed_speech_backend/providers/llm_providers.py
+   → Implementación de los proveedores LLM: Groq, Cerebras, Gemini Flash, DeepSeek.
+
+adri_speed_speech_backend/providers/tts_providers.py
+   → Implementación de proveedores TTS: Edge TTS (principal), Azure, Google WaveNet.
+
+adri_speed_speech_backend/providers/stt_providers.py
+   → Implementación de proveedores STT: Groq Whisper (backup).
+
+adri_speed_speech_backend/cache.py
+   → Caché de audio TTS con expiración (TTL de 30 días).
+
+adri_speed_speech_backend/quota_manager.py
+   → Gestiona las cuotas diarias y mensuales de cada proveedor.
+
+adri_speed_speech_backend/circuit_breaker.py
+   → Implementa un circuit breaker para evitar saturar proveedores que fallan.
+
+adri_speed_speech_backend/model_catalog.py
+   → Sincroniza el catálogo de modelos de los proveedores para detectar cambios.
+
+adri_speed_speech_backend/startup_checks.py
+   → Validaciones al arrancar el backend (versión de modelos, conectividad).
+
+adri_speed_speech_backend/requirements.txt
+   → Dependencias de Python del backend.
+
+
+📦 OTROS ARCHIVOS IMPORTANTES
+─────────────────────────────
+pubspec.yaml
+   → Dependencias de Flutter y assets declarados.
+
+android/app/src/main/AndroidManifest.xml
+   → Permisos de Android, incluyendo micrófono, cámara y el bloque <queries> para reconocimiento de voz.
+
+ios/Runner/Info.plist
+   → Configuración de iOS (permisos, localizaciones).
+
+
+--------------------------------------------------
+3.  ESTADO ACTUAL DEL PROYECTO (RESUMEN)
+--------------------------------------------------
+✅ Idiomas soportados: 41
+✅ Micrófono: Funcional (permiso concedido, dictado con 100ms de pausa)
+✅ Traducción escrita: Funcional (se muestra correctamente en las burbujas)
+⚠️  Traducción por voz: Funcional, pero a veces no se reproduce el audio correcto (depende del proveedor)
+❌ Cámara: Solo muestra el texto escaneado, NO traduce ni reproduce audio (pendiente de corregir)
+✅ Pantalla de carga: OK (degradado morado con logo)
+✅ Selector de idiomas: OK (en AppBar con pestañas y búsqueda)
+✅ Pantalla negra al cambiar de idioma: CORREGIDA (se fuerza rebuild con ValueKey)
+✅ Avatar: OK (se mueve y muestra expresiones según el audio)
+✅ Visemes: OK (los labios se mueven al hablar)
+✅ Botones de repetición: OK (dos botones por burbuja: avatar y traducción)
+✅ Ajuste de velocidad TTS: OK (de -20 a +20)
+✅ Historial por idioma: OK (persistente en SharedPreferences)
+✅ SRS básico: OK (palabras guardadas en SQLite)
+✅ Notificaciones diarias: OK (configurables en estadísticas)
+❌ Modo offline: Pendiente (traducción y TTS sin internet)
+❌ Niveles MCER (A1-C2): Pendiente de implementar
+❌ Enfoque por tareas (TBLT): Pendiente de implementar
+❌ Gamificación / Logros: Pendiente
+❌ Sincronización en la nube: Pendiente
+
+--------------------------------------------------
+4.  PRÓXIMOS PASOS (PENDIENTES POR PRIORIDAD)
+--------------------------------------------------
+🔴 ALTA PRIORIDAD
+  1. Corregir la cámara (traducción + audio)
+  2. Verificar y asegurar la traducción por voz (reproducir siempre con la voz correcta)
+  3. Implementar el modo offline (traducción con ML Kit, TTS con Kitten TTS)
+
+🟡 MEDIA PRIORIDAD
+  4. Sistema de niveles MCER (A1-C2)
+  5. Enfoque por tareas (TBLT) - escenarios conversacionales
+  6. Gamificación: logros, rachas, desafíos diarios
+
+🟢 BAJA PRIORIDAD
+  7. Personalización de voz (masculino/femenino)
+  8. Exportación de vocabulario (CSV/Anki)
+  9. Sincronización en la nube (Firebase)
+ 10. Tema claro
+ 11. Más idiomas (si se solicitan)
+
+==================================================
+           FIN DEL RESUMEN
+==================================================

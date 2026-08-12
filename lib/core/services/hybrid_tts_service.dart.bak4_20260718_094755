@@ -1,0 +1,55 @@
+import 'package:flutter_tts/flutter_tts.dart';
+import '../utils/logger.dart';
+
+class HybridTtsService {
+  final FlutterTts _flutterTts = FlutterTts();
+  bool _isSpeaking = false;
+  String? _precachedText;
+
+  bool get isSpeaking => _isSpeaking;
+
+  Future<void> initialize() async {
+    await _flutterTts.setSpeechRate(0.5);
+    await _flutterTts.setVolume(1.0);
+    await _flutterTts.setPitch(1.0);
+
+    _flutterTts.setCompletionHandler(() {
+      _isSpeaking = false;
+    });
+
+    _flutterTts.setErrorHandler((msg) {
+      Logger.error('TTS Error: \$msg');
+      _isSpeaking = false;
+    });
+  }
+
+  Future<void> setLanguage(String langCode) async {
+    final locale = switch (langCode) {
+      'sw' => 'sw-KE',
+      'zh' => 'zh-CN',
+      _    => 'en-US',
+    };
+    await _flutterTts.setLanguage(locale);
+  }
+
+  Future<void> precache(String text) async {
+    _precachedText = text;
+    Logger.log('TTS precached');
+  }
+
+  Future<void> speakResponse(String text) async {
+    if (text.isEmpty) return;
+    _isSpeaking = true;
+
+    final delay = (_precachedText == text) ? 200 : 800;
+    await Future.delayed(Duration(milliseconds: delay));
+
+    await _flutterTts.speak(text);
+    _precachedText = null;
+  }
+
+  Future<void> stop() async {
+    _isSpeaking = false;
+    await _flutterTts.stop();
+  }
+}

@@ -1,0 +1,46 @@
+import 'package:speech_to_text/speech_to_text.dart' as stt;
+import '../utils/logger.dart';
+
+class SpeechService {
+  final stt.SpeechToText _speech = stt.SpeechToText();
+  bool _isListening = false;
+
+  bool get isListening => _isListening;
+
+  Future<bool> initialize() async {
+    final available = await _speech.initialize(
+      onError: (error) => Logger.error('STT Error: $error'),
+      onStatus: (status) => Logger.log('STT Status: $status'),
+    );
+    return available;
+  }
+
+  Future<void> listen({
+    required Function(String locale) onLanguageDetected,
+    required Function(String text) onResult,
+  }) async {
+    if (!_speech.isAvailable) {
+      await initialize();
+    }
+
+    _isListening = true;
+
+    await _speech.listen(
+      onResult: (result) {
+        if (result.finalResult) {
+          final text = result.recognizedWords;
+          onLanguageDetected('en_US');
+          onResult(text);
+          _isListening = false;
+        }
+      },
+      localeId: 'en_US',
+      listenMode: stt.ListenMode.confirmation,
+    );
+  }
+
+  Future<void> stop() async {
+    _isListening = false;
+    await _speech.stop();
+  }
+}

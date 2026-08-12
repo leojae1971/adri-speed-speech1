@@ -1,0 +1,53 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import '../config/api_config.dart';
+import '../config/ai_persona_config.dart';
+import '../utils/logger.dart';
+
+class AIService {
+  final String _baseUrl;
+
+  AIService({String apiKey = '', String? baseUrl})
+      : _baseUrl = baseUrl ?? ApiConfig.backendBaseUrl;
+
+  Future<String?> sendMessage(String prompt, {String? lang}) async {
+    final effectiveLang = lang ?? 'en';
+    try {
+      final systemPrompt = AIPersonaConfig.systemPromptFor(effectiveLang);
+
+      // FIX: antes decía Uri.parse('\$_baseUrl/chat') — el backslash
+      // impedía que Dart interpolara la variable, así que la app
+      // intentaba llamar literalmente a la URL "$_baseUrl/chat" y
+      // el request fallaba SIEMPRE, cayendo directo al catch de abajo.
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl/chat'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'messages': [
+                {'role': 'system', 'content': systemPrompt},
+                {'role': 'user', 'content': prompt}
+              ],
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        // FIX: el backend (main.py -> route_chat) devuelve la clave
+        // "text", no "response". Con la clave equivocada, `raw` daba
+        // siempre null y caía al fallback — nunca se veía la
+        // respuesta real, ni en inglés ni en ningún otro idioma.
+        final raw = data['text']?.toString() ??
+            AIPersonaConfig.fallbackMessageFor(effectiveLang);
+        return AIPersonaConfig.filterResponse(raw);
+      } else {
+        Logger.error('AI Service error: ${response.statusCode}');
+        return AIPersonaConfig.fallbackMessageFor(effectiveLang);
+      }
+    } catch (e, st) {
+      Logger.error('AI Service exception', error: e, stackTrace: st);
+      return AIPersonaConfig.fallbackMessageFor(effectiveLang);
+    }
+  }
+}

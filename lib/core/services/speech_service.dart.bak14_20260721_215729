@@ -1,0 +1,75 @@
+import 'package:speech_to_text/speech_to_text.dart' as stt;
+import '../config/locale_map.dart';
+import '../utils/logger.dart';
+
+class SpeechService {
+  final stt.SpeechToText _speech = stt.SpeechToText();
+  bool _isListening = false;
+
+  bool get isListening => _isListening;
+
+  /// Devuelve el locale configurado en el TELÉFONO (no el idioma del
+  /// avatar seleccionado) -- FIX: antes el micrófono escuchaba usando
+  /// el idioma del avatar activo, así que si hablabas español con,
+  /// por ejemplo, el avatar de swahili seleccionado, el motor de voz
+  /// intentaba encajar sonidos en español dentro de fonemas de
+  /// swahili y el resultado salía sin sentido. Si el teléfono no
+  /// expone su locale por alguna razón, se usa español como
+  /// respaldo (es el idioma real de quienes usan esta app).
+  Future<String> systemLocaleOrSpanish() async {
+    try {
+      final locale = await _speech.systemLocale();
+      if (locale != null && locale.localeId.isNotEmpty) {
+        return locale.localeId;
+      }
+    } catch (_) {
+      // Algunos dispositivos no lo soportan -- se usa el respaldo.
+    }
+    return 'es-ES';
+  }
+
+  Future<bool> initialize() async {
+    final available = await _speech.initialize(
+      onError: (error) => Logger.error('STT Error: $error'),
+      onStatus: (status) => Logger.log('STT Status: $status'),
+    );
+    return available;
+  }
+
+  /// [language] es el código de idioma ACTUAL de la app ('en','es',
+  /// 'sw','zh',...). FIX: antes este parámetro no existía y el
+  /// reconocimiento de voz siempre usaba 'en_US' sin importar el
+  /// idioma seleccionado — si hablabas en otro idioma, el motor STT
+  /// intentaba reconocerlo como inglés y el resultado salía vacío o
+  /// incorrecto (percibido como "el micrófono no funciona").
+  Future<void> listen({
+    required String language,
+    required Function(String locale) onLanguageDetected,
+    required Function(String text) onResult,
+  }) async {
+    if (!_speech.isAvailable) {
+      await initialize();
+    }
+
+    final localeId = LocaleMap.forLanguage(language);
+    _isListening = true;
+
+    await _speech.listen(
+      onResult: (result) {
+        if (result.finalResult) {
+          final text = result.recognizedWords;
+          onLanguageDetected(localeId);
+          onResult(text);
+          _isListening = false;
+        }
+      },
+      localeId: localeId,
+      listenMode: stt.ListenMode.confirmation,
+    );
+  }
+
+  Future<void> stop() async {
+    _isListening = false;
+    await _speech.stop();
+  }
+}

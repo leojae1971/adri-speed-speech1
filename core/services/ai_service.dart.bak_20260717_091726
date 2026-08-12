@@ -1,0 +1,48 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import '../config/api_config.dart';
+import '../config/ai_persona_config.dart';
+import '../utils/logger.dart';
+
+class AIService {
+  final String _baseUrl;
+
+  AIService({String apiKey = '', String? baseUrl})
+      : _baseUrl = baseUrl ?? ApiConfig.backendBaseUrl;
+
+  Future<String?> sendMessage(String prompt, {String? lang}) async {
+    try {
+      // Mapeo directo de idioma a prompt (en/sw/zh)
+      final systemPrompt = switch (lang) {
+        'sw' => AIPersonaConfig.systemPromptSwahili,
+        'zh' => AIPersonaConfig.systemPromptMandarin,
+        _    => AIPersonaConfig.systemPromptEnglish, // default: en
+      };
+
+      final response = await http
+          .post(
+            Uri.parse('\$_baseUrl/chat'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'messages': [
+                {'role': 'system', 'content': systemPrompt},
+                {'role': 'user', 'content': prompt}
+              ],
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final raw = data['response']?.toString() ?? 'Sorry, I could not understand.';
+        return AIPersonaConfig.filterResponse(raw);
+      } else {
+        Logger.error('AI Service error: \${response.statusCode}');
+        return 'Sorry, I could not understand.';
+      }
+    } catch (e, st) {
+      Logger.error('AI Service exception', error: e, stackTrace: st);
+      return 'Sorry, I could not understand.';
+    }
+  }
+}

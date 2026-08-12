@@ -1,0 +1,44 @@
+import 'dart:async';
+import 'package:http/http.dart' as http;
+import '../config/api_config.dart';
+import '../utils/logger.dart';
+
+class BackendWarmupService {
+  static final BackendWarmupService _instance = BackendWarmupService._internal();
+  factory BackendWarmupService() => _instance;
+  BackendWarmupService._internal();
+
+  bool _isWarmed = false;
+  int _retryCount = 0;
+
+  /// ⚡ Precalienta el backend en background sin bloquear la UI
+  Future<void> warmup() async {
+    if (_isWarmed) return;
+    
+    LinguaLogger.info('WARMUP: Precalentando servidor...');
+    
+    // Solo 3 intentos, delays cortos: 1s, 2s, 3s = 6s total max
+    while (_retryCount < 3 && !_isWarmed) {
+      try {
+        final response = await http.get(
+          Uri.parse('${ApiConfig.backendBaseUrl}/health'),
+        ).timeout(const Duration(seconds: 8)); // timeout agresivo
+        
+        if (response.statusCode == 200) {
+          _isWarmed = true;
+          LinguaLogger.info('WARMUP: Servidor listo en intento ${_retryCount + 1}');
+          return;
+        }
+      } catch (e) {
+        LinguaLogger.warning('WARMUP: Intento ${_retryCount + 1} falló - $e');
+      }
+      
+      _retryCount++;
+      await Future.delayed(Duration(seconds: _retryCount)); // 1s, 2s, 3s
+    }
+    
+    LinguaLogger.warning('WARMUP: Servidor no respondió, app usable de todos modos');
+  }
+
+  bool get isWarmed => _isWarmed;
+}

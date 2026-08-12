@@ -1,0 +1,443 @@
+import 'dart:async';
+import 'dart:math';
+import 'package:flutter/material.dart';
+import 'avatar_lip_sync_service.dart';
+import 'dialogue_script_parser.dart';
+
+enum FacialExpression { neutral, happy, thinking, surprised }
+
+class AdriAvatarWidget extends StatefulWidget {
+  final bool isSpeaking;
+  final double amplitude;
+  final String language;
+  final VoidCallback? onLanguageTap;
+  // Si viene distinto de null, pisa el viseme calculado por
+  // amplitud y dibuja la expresión completa (cejas, ojos, boca)
+  // de las 15 posiciones. Si es null, el widget se comporta como
+  // antes (solo boca por amplitud, sin cejas).
+  final AvatarExpression? expressionOverride;
+
+  const AdriAvatarWidget({
+    super.key,
+    this.isSpeaking = false,
+    this.amplitude = 0.0,
+    this.language = 'en',
+    this.onLanguageTap,
+    this.expressionOverride,
+  });
+
+  @override
+  State<AdriAvatarWidget> createState() => _AdriAvatarWidgetState();
+}
+
+class _AdriAvatarWidgetState extends State<AdriAvatarWidget>
+    with TickerProviderStateMixin {
+  late AnimationController _blinkController;
+  late AnimationController _mouthController;
+  late AnimationController _expressionController;
+
+  final AvatarLipSyncService _lipSync = AvatarLipSyncService();
+  FacialExpression _expression = FacialExpression.neutral;
+  bool _isBlinking = false;
+  Timer? _blinkTimer;
+  Viseme _currentViseme = Viseme.closed;
+
+  static const Color _lipColor = Color(0xFFCC8E8E);
+  static const Color _skinColor = Color(0xFFF5D0C5);
+  static const Color _eyeColor = Color(0xFF2D1B4E);
+  static const Color _hairColor = Color(0xFF6B3FA0);
+
+  @override
+  void initState() {
+    super.initState();
+    _blinkController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 160),
+    );
+    _mouthController = AnimationController(vsync: this);
+    _expressionController = AnimationController(vsync: this);
+    _startBlinking();
+  }
+
+  void _startBlinking() {
+    _blinkTimer?.cancel();
+    _scheduleNextBlink();
+  }
+
+  void _scheduleNextBlink() {
+    final nextBlink = Duration(milliseconds: 2200 + Random().nextInt(2600));
+    _blinkTimer = Timer(nextBlink, () {
+      if (mounted) {
+        _blinkController.forward().then((_) => _blinkController.reverse());
+        _scheduleNextBlink();
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant AdriAvatarWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (widget.expressionOverride != null) {
+      final params = kExpressionParams[widget.expressionOverride]!;
+      _currentViseme = params.viseme;
+    } else if (widget.isSpeaking && widget.amplitude > 0.05) {
+      _currentViseme = _lipSync.calculateViseme(widget.amplitude);
+    } else {
+      _currentViseme = Viseme.closed;
+    }
+
+    if (widget.isSpeaking != oldWidget.isSpeaking) {
+      setState(() {
+        _expression = widget.isSpeaking ? FacialExpression.happy : FacialExpression.neutral;
+      });
+    }
+    if (widget.expressionOverride != oldWidget.expressionOverride) {
+      setState(() {});
+    }
+  }
+
+  @override
+  void dispose() {
+    _blinkTimer?.cancel();
+    _blinkController.dispose();
+    _mouthController.dispose();
+    _expressionController.dispose();
+    super.dispose();
+  }
+
+  String get _avatarAsset {
+    return switch (widget.language) {
+      'sw' => 'assets/avatars/adri_sw.png',
+      'zh' => 'assets/avatars/adri_zh.png',
+      // TODO: reemplazar por fotos reales cuando existan (por ahora
+      // reusan las 3 fotos ya disponibles como placeholder temporal).
+      'hi' => 'assets/avatars/adri_en.png',
+      'fr' => 'assets/avatars/adri_sw.png',
+      'ru' => 'assets/avatars/adri_zh.png',
+      'pt' => 'assets/avatars/adri_en.png',
+      'de' => 'assets/avatars/adri_sw.png',
+      'ar' => 'assets/avatars/adri_zh.png',
+      'es' => 'assets/avatars/adri_en.png',
+      _    => 'assets/avatars/adri_en.png',
+    };
+  }
+
+  String get _languageName {
+    return switch (widget.language) {
+      'sw' => 'Swahili Voice',
+      'zh' => 'Zhong Wen Yu Yin',
+      'hi' => 'Hindi Voice',
+      'fr' => 'Voix Française',
+      'ru' => 'Russkiy Golos',
+      'pt' => 'Voz Portuguesa',
+      'de' => 'Deutsche Stimme',
+      'ar' => 'Sawt Arabi',
+      'es' => 'Voz en Español',
+      _    => 'English Voice',
+    };
+  }
+
+  String get _flagEmoji {
+    return switch (widget.language) {
+      'sw' => '🇹🇿',
+      'zh' => '🇨🇳',
+      'hi' => '🇮🇳',
+      'fr' => '🇫🇷',
+      'ru' => '🇷🇺',
+      'pt' => '🇵🇹',
+      'de' => '🇩🇪',
+      'ar' => '🇸🇦',
+      'es' => '🇪🇸',
+      _    => '🇬🇧',
+    };
+  }
+
+  double _getMouthHeight() {
+    return switch (_currentViseme) {
+      Viseme.closed => 0.02,
+      Viseme.half   => 0.04,
+      Viseme.open   => 0.06,
+      Viseme.wide   => 0.08,
+      Viseme.round  => 0.07,
+      Viseme.smile  => 0.03,
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Stack(
+          alignment: Alignment.center,
+          children: [
+            Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: _hairColor.withOpacity(0.3),
+                border: Border.all(color: const Color(0xFF7C3AED), width: 3),
+              ),
+              child: ClipOval(
+                child: Image.asset(
+                  _avatarAsset,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => _buildFallbackAvatar(),
+                ),
+              ),
+            ),
+            Positioned.fill(
+              child: CustomPaint(
+                painter: _FacePainter(
+                  isSpeaking: widget.isSpeaking || widget.expressionOverride != null,
+                  isBlinking: _isBlinking || _blinkController.value > 0.5,
+                  viseme: _currentViseme,
+                  expression: _expression,
+                  amplitude: widget.amplitude,
+                  browLift: widget.expressionOverride != null
+                      ? kExpressionParams[widget.expressionOverride]!.browLift
+                      : 0,
+                  eyeOpen: widget.expressionOverride != null
+                      ? kExpressionParams[widget.expressionOverride]!.eyeOpen
+                      : 0.5,
+                  headTiltDeg: widget.expressionOverride != null
+                      ? kExpressionParams[widget.expressionOverride]!.headTiltDeg
+                      : 0,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Adri',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        Text(
+          widget.isSpeaking ? 'Speaking...' : 'Waiting...',
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.white.withOpacity(0.7),
+          ),
+        ),
+        const SizedBox(height: 4),
+        GestureDetector(
+          onTap: widget.onLanguageTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(_flagEmoji, style: const TextStyle(fontSize: 16)),
+                const SizedBox(width: 6),
+                Text(
+                  _languageName,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Colors.white,
+                  ),
+                ),
+                const Icon(Icons.arrow_drop_down, color: Colors.white, size: 18),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFallbackAvatar() {
+    return Container(
+      color: _skinColor,
+      child: Center(
+        child: Icon(Icons.person, size: 60, color: _hairColor),
+      ),
+    );
+  }
+}
+
+class _FacePainter extends CustomPainter {
+  final bool isSpeaking;
+  final bool isBlinking;
+  final Viseme viseme;
+  final FacialExpression expression;
+  final double amplitude;
+  final double browLift;
+  final double eyeOpen;
+  final double headTiltDeg;
+
+  _FacePainter({
+    required this.isSpeaking,
+    required this.isBlinking,
+    required this.viseme,
+    required this.expression,
+    required this.amplitude,
+    this.browLift = 0,
+    this.eyeOpen = 0.5,
+    this.headTiltDeg = 0,
+  });
+
+  static const Color _lipColor = Color(0xFFCC8E8E);
+  static const Color _eyeColor = Color(0xFF2D1B4E);
+  static const Color _browColor = Color(0xFF4A3220);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.save();
+    final pivot = Offset(size.width / 2, size.height / 2);
+    canvas.translate(pivot.dx, pivot.dy);
+    canvas.rotate(headTiltDeg * 3.1415926535 / 180);
+    canvas.translate(-pivot.dx, -pivot.dy);
+
+    final center = Offset(size.width / 2, size.height / 2);
+    final scale = size.width;
+
+    // Coordenadas recalibradas: la foto (768x1376) se muestra en
+    // un contenedor CUADRADO con BoxFit.cover, que recorta ~44% de
+    // la imagen (22% arriba + 22% abajo) para llenar el cuadrado.
+    // X no se recorta (el ancho SÍ llena el cuadrado exactamente),
+    // por eso solo Y cambia respecto a la posición real en la foto.
+    const eyeRy = 0.151; // antes 0.315 (posición en la foto SIN recortar)
+    const browRy = 0.075;
+    final effectivelyBlinking = isBlinking && eyeOpen < 0.75;
+    if (!effectivelyBlinking) {
+      _drawEye(canvas, center, scale, 0.40, eyeRy);
+      _drawEye(canvas, center, scale, 0.61, eyeRy);
+    } else {
+      _drawClosedEye(canvas, center, scale, 0.40, eyeRy);
+      _drawClosedEye(canvas, center, scale, 0.61, eyeRy);
+    }
+
+    _drawEyebrow(canvas, center, scale, 0.40, browRy);
+    _drawEyebrow(canvas, center, scale, 0.61, browRy);
+
+    if (isSpeaking) {
+      _drawMouth(canvas, center, scale);
+    }
+
+    canvas.restore();
+  }
+
+  void _drawEyebrow(
+      Canvas canvas, Offset center, double scale, double rx, double ry) {
+    final paint = Paint()
+      ..color = _browColor.withOpacity(0.85)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round;
+
+    final liftNorm = browLift / 120.0 * scale;
+    final pos = Offset(
+      center.dx + (rx - 0.5) * scale,
+      center.dy + (ry - 0.5) * scale + liftNorm,
+    );
+
+    canvas.drawLine(
+      Offset(pos.dx - 0.05 * scale, pos.dy),
+      Offset(pos.dx + 0.05 * scale, pos.dy),
+      paint,
+    );
+  }
+
+  void _drawEye(Canvas canvas, Offset center, double scale, double rx, double ry) {
+    final eyePaint = Paint()
+      ..color = _eyeColor
+      ..style = PaintingStyle.fill;
+
+    final pos = Offset(
+      center.dx + (rx - 0.5) * scale,
+      center.dy + (ry - 0.5) * scale,
+    );
+
+    final radius = (0.040 + eyeOpen * 0.026) * scale;
+    canvas.drawCircle(pos, radius, eyePaint);
+
+    final shinePaint = Paint()
+      ..color = Colors.white.withOpacity(0.6)
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(
+      Offset(pos.dx - 0.01 * scale, pos.dy - 0.01 * scale),
+      0.012 * scale,
+      shinePaint,
+    );
+  }
+
+  void _drawClosedEye(Canvas canvas, Offset center, double scale, double rx, double ry) {
+    final paint = Paint()
+      ..color = _eyeColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+
+    final pos = Offset(
+      center.dx + (rx - 0.5) * scale,
+      center.dy + (ry - 0.5) * scale,
+    );
+
+    final path = Path()
+      ..moveTo(pos.dx - 0.03 * scale, pos.dy)
+      ..quadraticBezierTo(pos.dx, pos.dy + 0.005 * scale, pos.dx + 0.03 * scale, pos.dy);
+
+    canvas.drawPath(path, paint);
+  }
+
+  void _drawMouth(Canvas canvas, Offset center, double scale) {
+    final mouthPaint = Paint()
+      ..color = _lipColor
+      ..style = PaintingStyle.fill;
+
+    // Recalibrado: 0.430 es la posición real de la boca medida con
+    // MediaPipe sobre la foto SIN recortar; 0.375 es esa misma
+    // posición ya transformada al recorte cuadrado (ver nota en
+    // paint() sobre BoxFit.cover). Ancho real medido: 0.20 (antes
+    // 0.16, la boca se dibujaba visiblemente más angosta que la real).
+    final mouthCenter = Offset(
+      center.dx,
+      center.dy + (0.375 - 0.5) * scale,
+    );
+
+    final width = 0.20 * scale;
+    final height = _getMouthHeight() * scale;
+
+    final rect = RRect.fromRectAndRadius(
+      Rect.fromCenter(center: mouthCenter, width: width, height: height),
+      Radius.circular(height / 2),
+    );
+
+    canvas.drawRRect(rect, mouthPaint);
+
+    final innerPaint = Paint()
+      ..color = const Color(0xFFAA6E6E)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+
+    canvas.drawLine(
+      Offset(mouthCenter.dx - width * 0.3, mouthCenter.dy),
+      Offset(mouthCenter.dx + width * 0.3, mouthCenter.dy),
+      innerPaint,
+    );
+  }
+
+  double _getMouthHeight() {
+    return switch (viseme) {
+      Viseme.closed => 0.03,
+      Viseme.half   => 0.06,
+      Viseme.open   => 0.09,
+      Viseme.wide   => 0.12,
+      Viseme.round  => 0.10,
+      Viseme.smile  => 0.045,
+    };
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}

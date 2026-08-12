@@ -1,0 +1,382 @@
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../../../core/services/ai_service.dart';
+import '../../../../core/services/hybrid_tts_service.dart';
+import '../../../../core/services/speech_service.dart';
+import '../../../../core/services/avatar/adri_avatar_widget.dart';
+import '../../../../core/services/avatar/dialogue_script_parser.dart';
+import '../../../../main.dart';
+import 'image_translation_screen.dart';
+
+class ChatScreen extends StatefulWidget {
+  const ChatScreen({super.key});
+
+  @override
+  State<ChatScreen> createState() => _ChatScreenState();
+}
+
+class _ChatScreenState extends State<ChatScreen> {
+  final TextEditingController _controller = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  final List<Map<String, dynamic>> _messages = [];
+
+  late AIService _aiService;
+  late HybridTtsService _ttsService;
+  late SpeechService _speechService;
+  late AdriSpeechState _speechState;
+
+  String _currentLanguage = 'en';
+  bool _isProcessing = false;
+  AvatarExpression? _currentAvatarExpression;
+
+  static const List<Map<String, String>> _languages = [
+    {'code': 'en', 'flag': '🇬🇧', 'label': 'English'},
+    {'code': 'es', 'flag': '🇪🇸', 'label': 'Español'},
+    {'code': 'sw', 'flag': '🇹🇿', 'label': 'Swahili'},
+    {'code': 'zh', 'flag': '🇨🇳', 'label': 'Mandarin'},
+    {'code': 'hi', 'flag': '🇮🇳', 'label': 'Hindi'},
+    {'code': 'fr', 'flag': '🇫🇷', 'label': 'Français'},
+    {'code': 'ru', 'flag': '🇷🇺', 'label': 'Русский'},
+    {'code': 'pt', 'flag': '🇵🇹', 'label': 'Português'},
+    {'code': 'de', 'flag': '🇩🇪', 'label': 'Deutsch'},
+    {'code': 'ar', 'flag': '🇸🇦', 'label': 'العربية'},
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _aiService = context.read<AIService>();
+    _ttsService = context.read<HybridTtsService>();
+    _speechService = context.read<SpeechService>();
+    _speechState = context.read<AdriSpeechState>();
+
+    _ttsService.initialize();
+    _ttsService.setLanguage(_currentLanguage);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  void _changeLanguage(String code) {
+    setState(() => _currentLanguage = code);
+    _ttsService.setLanguage(code);
+    Navigator.of(context).pop();
+  }
+
+  void _showLanguageSelector() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A2E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: Text(
+                  'Elige un idioma',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              ..._languages.map((lang) {
+                final isSelected = _currentLanguage == lang['code'];
+                return ListTile(
+                  leading: Text(lang['flag']!, style: const TextStyle(fontSize: 22)),
+                  title: Text(
+                    lang['label']!,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                  trailing: isSelected
+                      ? const Icon(Icons.check, color: Color(0xFF7C3AED))
+                      : null,
+                  onTap: () => _changeLanguage(lang['code']!),
+                );
+              }),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _sendMessage([String? spokenText]) async {
+    final text = (spokenText ?? _controller.text).trim();
+    if (text.isEmpty || _isProcessing) return;
+
+    _controller.clear();
+
+    setState(() {
+      _messages.add({'role': 'user', 'text': text});
+      _isProcessing = true;
+    });
+    _scrollToBottom();
+
+    _speechState.setState_(AdriState.waiting);
+
+    final adriResponse = await _aiService.sendMessage(text, lang: _currentLanguage);
+
+    setState(() {
+      _messages.add({
+        'role': 'adri',
+        'text': adriResponse.cleanText,
+        'translation': adriResponse.spanishTranslation,
+        'tagged': adriResponse.taggedText,
+        'provider': adriResponse.providerUsed,
+      });
+    });
+    _scrollToBottom();
+
+    await _ttsService.precache(adriResponse.cleanText);
+    await Future.delayed(const Duration(milliseconds: 150));
+
+    _speechState.setState_(AdriState.speaking);
+    await _playTaggedResponse(adriResponse);
+    _speechState.setState_(AdriState.idle);
+
+    if (mounted) setState(() => _isProcessing = false);
+  }
+
+  /// Reproduce el audio y anima el avatar en paralelo: la expresión
+  /// va cambiando fragmento por fragmento (duración estimada por
+  /// cantidad de caracteres) mientras el TTS dice el texto completo.
+  Future<void> _playTaggedResponse(AdriResponse response) async {
+    final cues = DialogueScriptParser.parse(response.taggedText);
+    const charsPerSecond = 14.0;
+
+    final ttsFuture = _ttsService.speakResponse(response.cleanText);
+
+    for (final cue in cues) {
+      if (!mounted) break;
+      setState(() => _currentAvatarExpression = cue.expression);
+      final ms = (cue.text.length / charsPerSecond * 1000).clamp(180, 4000).toInt();
+      await Future.delayed(Duration(milliseconds: ms));
+    }
+
+    await ttsFuture;
+    if (mounted) setState(() => _currentAvatarExpression = null);
+  }
+
+  Future<void> _onMicPressed() async {
+    if (_speechState.state == AdriState.listening) {
+      await _speechService.stop();
+      _speechState.setState_(AdriState.idle);
+      return;
+    }
+    _speechState.setState_(AdriState.listening);
+    await _speechService.listen(
+      language: _currentLanguage,
+      onLanguageDetected: (_) {},
+      onResult: (text) {
+        _speechState.setState_(AdriState.idle);
+        if (text.trim().isNotEmpty) {
+          _sendMessage(text);
+        }
+      },
+    );
+  }
+
+  void _openCamera() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const ImageTranslationScreen()),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final speechState = context.watch<AdriSpeechState>();
+    final currentLangMeta = _languages.firstWhere(
+      (l) => l['code'] == _currentLanguage,
+      orElse: () => _languages.first,
+    );
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Adri Speed Speech'),
+        actions: [
+          IconButton(
+            tooltip: 'Traducir con la cámara',
+            icon: const Icon(Icons.camera_alt_outlined),
+            onPressed: _openCamera,
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: AdriAvatarWidget(
+              key: ValueKey(_currentLanguage),
+              isSpeaking: speechState.state == AdriState.speaking,
+              amplitude: speechState.amplitude,
+              language: _currentLanguage,
+              onLanguageTap: _showLanguageSelector,
+              expressionOverride: _currentAvatarExpression,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              switch (speechState.state) {
+                AdriState.listening => 'Escuchando…',
+                AdriState.waiting => 'Esperando…',
+                AdriState.speaking => 'Hablando…',
+                AdriState.idle => '${currentLangMeta['flag']} ${currentLangMeta['label']} Voice',
+              },
+              style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 13),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(height: 1, color: const Color(0xFF7C3AED).withOpacity(0.3)),
+          Expanded(
+            child: ListView.builder(
+              controller: _scrollController,
+              padding: const EdgeInsets.all(16),
+              itemCount: _messages.length,
+              itemBuilder: (context, index) {
+                final msg = _messages[index];
+                final isUser = msg['role'] == 'user';
+                return _ChatBubble(
+                  text: msg['text'],
+                  isUser: isUser,
+                  translation: msg['translation'],
+                );
+              },
+            ),
+          ),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      speechState.state == AdriState.listening
+                          ? Icons.mic
+                          : Icons.mic_none,
+                      color: speechState.state == AdriState.listening
+                          ? const Color(0xFFEC4899)
+                          : Colors.white70,
+                    ),
+                    onPressed: _isProcessing ? null : _onMicPressed,
+                  ),
+                  Expanded(
+                    child: TextField(
+                      controller: _controller,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: 'Type or speak...',
+                        hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
+                        filled: true,
+                        fillColor: const Color(0xFF1A1A2E),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(24),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                      onSubmitted: (_) => _sendMessage(),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  CircleAvatar(
+                    backgroundColor: const Color(0xFFEC4899),
+                    child: IconButton(
+                      icon: const Icon(Icons.send, color: Colors.white, size: 20),
+                      onPressed: _isProcessing ? null : () => _sendMessage(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChatBubble extends StatelessWidget {
+  final String text;
+  final bool isUser;
+  final String? translation;
+
+  const _ChatBubble({required this.text, required this.isUser, this.translation});
+
+  @override
+  Widget build(BuildContext context) {
+    final hasTranslation =
+        !isUser && translation != null && translation!.trim().isNotEmpty;
+    return Align(
+      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: isUser ? const Color(0xFF1E3A5F) : const Color(0xFF7C3AED),
+          borderRadius: BorderRadius.only(
+            topLeft: const Radius.circular(16),
+            topRight: const Radius.circular(16),
+            bottomLeft: Radius.circular(isUser ? 16 : 4),
+            bottomRight: Radius.circular(isUser ? 4 : 16),
+          ),
+        ),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.75,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              text,
+              style: const TextStyle(color: Colors.white, fontSize: 15, height: 1.4),
+            ),
+            if (hasTranslation) ...[
+              const SizedBox(height: 6),
+              Container(height: 1, color: Colors.white.withOpacity(0.2)),
+              const SizedBox(height: 6),
+              Text(
+                translation!,
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.75),
+                  fontSize: 13,
+                  fontStyle: FontStyle.italic,
+                  height: 1.3,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
